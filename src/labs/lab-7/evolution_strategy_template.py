@@ -88,23 +88,23 @@ def evolution_strategy(
     x_opt = None
 
     # Parameters setting
-    mu_ = 100
-    lambda_ = 10
+    mu_ = 10
+    lambda_ = 100
     tau =  1 / np.sqrt(2 * dimension)
 
     # Initialization and Evaluation
-    parents, parents_sigma = initialization(mu_, func.meta_data.n_variables)
+    parents, parents_sigma = initialization(lambda_, func.meta_data.n_variables)
     parents_f = np.array([func(parent) for parent in parents])
-    budget = budget - mu_
+    budget = budget - lambda_
 
     # Optimization Loop
     while (f_opt > optimum and budget > 0):        
-        offspring = np.zeros(shape=(mu_, dimension))
-        offspring_sigma = np.zeros(shape=(mu_, dimension))
-        offspring_f = np.zeros(shape=(mu_))
+        offspring = np.zeros(shape=(lambda_, dimension))
+        offspring_sigma = np.zeros(shape=(lambda_, dimension))
+        offspring_f = np.zeros(shape=(lambda_))
 
         # Recombination
-        for i in range(mu_):
+        for i in range(lambda_):
             o, s = recombination(parents, parents_sigma)
             offspring[i] = o
             offspring_sigma[i] = s
@@ -120,9 +120,9 @@ def evolution_strategy(
         offspring_sigma = offspring_sigma[ranking]
         offspring_f = offspring_f[ranking]
 
-        parents = offspring[:lambda_]
-        parents_sigma = offspring_sigma[:lambda_]
-        parents_f = offspring_f[:lambda_]
+        parents = offspring[:mu_]
+        parents_sigma = offspring_sigma[:mu_]
+        parents_f = offspring_f[:mu_]
         
         # Update the best solution
         best_in_pop = np.argmin(parents_f)
