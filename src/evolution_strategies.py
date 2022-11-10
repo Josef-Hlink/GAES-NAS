@@ -5,7 +5,7 @@ import time
 
 
 def main():
-    sphere = get_problem("Sphere", dimension=5)
+    sphere = get_problem('Sphere', dimension=5)
     es = EvolutionStrategies(
         problem = sphere,
         pop_size = 100,
@@ -13,7 +13,7 @@ def main():
         lambda_ = 60,
         tau_ = 1 / np.sqrt(2 * sphere.meta_data.n_variables),
         sigma_ = 0.1,
-        budget = 50_000,
+        budget = 500_000,
         recombination = 'd',
         individual_sigmas = True
     )
@@ -55,9 +55,8 @@ class EvolutionStrategies:
         self.isig = individual_sigmas
 
         self.n_dimensions = problem.meta_data.n_variables
-        # FIXME: these should be hidden somewhere in the problem object
-        self.lb = problem.lowerbound
-        self.ub = problem.upperbound
+        self.lb = problem.bounds.lb[0]
+        self.ub = problem.bounds.ub[0]
 
         if self.pop_size == self.lambda_:
             self.selection = ','
@@ -124,36 +123,30 @@ class EvolutionStrategies:
     def initialize_population(self) -> None:
         """ Initializes population and sigmas with random values between lower and upper bounds """
 
-        self.population = np.array([
-            np.random.uniform(
-                self.lb,
-                self.ub,
-                (self.pop_size, self.n_dimensions)
-            )
-        ])
+        self.population = np.random.uniform(
+            self.lb,
+            self.ub,
+            (self.pop_size, self.n_dimensions)
+        )
 
         sigma = self.sigma_prop * (self.ub - self.lb)
 
         if self.isig:  # every parameter has its own sigma associated with it
-            self.pop_sigmas = np.array(
-                [np.random.uniform(
-                    self.lb * sigma,
-                    self.ub * sigma,
-                    (self.pop_size, self.n_dimensions)
-                )
-            ])
+            self.pop_sigmas = np.random.uniform(
+                self.lb * sigma,
+                self.ub * sigma,
+                (self.pop_size, self.n_dimensions)
+            )
         else:  # every parameter has the same sigma associated with it, but it still differs from candidate to candidate
             self.pop_sigmas = np.repeat(
-                np.array([
-                    np.random.uniform(
-                        self.lb * sigma,
-                        self.ub * sigma,
-                        self.pop_size
-                    )
-                ]),
+                np.random.uniform(
+                    self.lb * sigma,
+                    self.ub * sigma,
+                    self.pop_size
+                ),
                 self.n_dimensions
             ).reshape(self.pop_size, self.n_dimensions)
-        
+
         return
 
 
@@ -217,11 +210,10 @@ class EvolutionStrategies:
         Evaluates the fitness of all candidate solutions in the population.
         Returns the candidate solutions ranked by fitness values, along with their sigmas and the highest fitness value.
         """
-
         pop_fitness = np.array([self.problem(x) for x in self.population])
         ranking = np.argsort(pop_fitness)
 
-        return self.pop[ranking], self.pop_sigmas[ranking], pop_fitness[ranking], np.max(pop_fitness)
+        return self.population[ranking], self.pop_sigmas[ranking], np.max(pop_fitness)
 
 
     def validate_parameters(
@@ -249,8 +241,8 @@ class EvolutionStrategies:
         assert lambda_ > 0, "lambda must be greater than 0"
         assert lambda_ < pop_size, "lambda must be less than population size"
 
-        assert pop_size == lambda_ + mu_ or pop_size == lambda_, "population size must be"
-        + " either number of parents + number of offspring or just number of offspring"
+        assert pop_size == lambda_ + mu_ or pop_size == lambda_, "population size must be" + \
+        " either number of parents + number of offspring or just number of offspring"
 
         assert isinstance(tau_, float), "tau must be a float"
         assert tau_ > 0, "tau must be greater than 0"
@@ -264,7 +256,7 @@ class EvolutionStrategies:
 
         assert isinstance(budget, int), "budget must be an integer"
         assert budget > 0, "budget must be greater than 0"
-        assert budget < 100_000, "budget must be less than 100,000"
+        assert budget < 1_000_000, "budget must be less than 1 million"
 
         assert isinstance(individual_sigmas, bool), "individual_sigmas must be a boolean"
 
