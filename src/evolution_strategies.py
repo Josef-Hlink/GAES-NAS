@@ -5,39 +5,7 @@ import matplotlib.pyplot as plt
 from ioh import get_problem
 import ioh
 
-from utils import ProgressBar, get_directories
-
-
-def main():
-    dirs = get_directories(__file__)
-    sphere = get_problem('Sphere', dimension=5)
-    es = EvolutionStrategies(
-        problem = sphere,
-        pop_size = 100,
-        mu_ = 40,
-        lambda_ = 60,
-        tau_ = 1 / np.sqrt(2 * sphere.meta_data.n_variables),
-        sigma_ = 0.1,
-        budget = 500_000,
-        recombination = 'd',
-        individual_sigmas = True,
-        run_id = 'discrete recombination'
-    )
-    tic = time.perf_counter()
-    x_opt, f_opt, history = es.optimize(return_history=True)
-    toc = time.perf_counter()
-    print(f'time: {toc - tic:.3f} seconds')
-    print(f'f_opt: {f_opt:.5f}')
-    print(f'x_opt: {x_opt}')
-    fig, ax = plt.subplots()
-    ax.plot(history)
-    ax.set_title('Sphere')
-    ax.set_xlabel('generation')
-    ax.set_ylabel(r'$f_\mathrm{opt}$')
-    fig.tight_layout()
-    fig.savefig(dirs['plots']+'sphere.png', dpi=100)
-    return
-
+from utils import ProgressBar
 
 class EvolutionStrategies:
     
@@ -49,7 +17,7 @@ class EvolutionStrategies:
         lambda_: int,
         tau_: float,
         sigma_: float,
-        budget: int = 50_000,
+        budget: int = 5_000,
         recombination: str = 'd',
         individual_sigmas: bool = False,
         run_id: str | None = None
@@ -278,13 +246,8 @@ class EvolutionStrategies:
 
         assert isinstance(budget, int), "budget must be an integer"
         assert budget > 0, "budget must be greater than 0"
-        assert budget < 100_000_000, "budget must be less than 100 million"
+        assert budget < 10_000_000, "budget must be less than 100 million"
 
         assert isinstance(individual_sigmas, bool), "individual_sigmas must be a boolean"
 
         return
-
-
-
-if __name__ == '__main__':
-    main()

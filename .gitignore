@@ -1,5 +1,5 @@
 venv
-plots
+results
 data
 .ipynb_checkpoints
 .vscode

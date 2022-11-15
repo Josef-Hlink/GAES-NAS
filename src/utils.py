@@ -2,9 +2,9 @@ import os
 from warnings import warn
 from time import perf_counter
 
-def get_directories(main_file: str) -> dict[str, str]:
+def get_directories(parent_file: str) -> dict[str, str]:
     """Returns a tuple of directories to be used in the program."""
-    src = os.path.dirname(os.path.abspath(main_file))
+    src = os.path.dirname(os.path.abspath(parent_file))
     root = os.sep.join(src.split(os.sep)[:-1])
     data = os.path.join(root, 'data')
     results = os.path.join(root, 'results')
