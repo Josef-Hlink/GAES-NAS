@@ -1,4 +1,5 @@
 import os
+import argparse
 from time import perf_counter
 from itertools import product
 
@@ -9,13 +10,19 @@ from ioh import get_problem
 import ioh
 
 from evolution_strategies import EvolutionStrategies
-from utils import get_directories
+from utils import get_directories, ParseWrapper
 
 
 def main():
-    global dirs, seed
+    global dirs, seed, verbose
     dirs = get_directories(__file__)
-    seed = 42
+    parser = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter)
+    args = ParseWrapper(parser)()
+    seed = args.get('seed')
+    verbose = args.get('verbose')
+    if not os.path.exists(dirs['plots']+f'{seed}'):
+        os.mkdir(dirs['plots']+f'{seed}')
+    dirs['plots'] += f'{seed}/'
     np.random.seed(seed)
     tic = perf_counter()
     for experiment_id in range(1, 25):
@@ -67,7 +74,7 @@ def create_dataframe(problem: ioh.ProblemType, combinations: product) -> pd.Data
             recombination = recombination,
             individual_sigmas = True,
             run_id = run_id,
-            verbose = False
+            verbose = verbose
         )
         x_opt, f_opt, history = es.optimize(return_history=True)
         df.loc[run_id] = (recombination, sigma_, tau_, f_opt, history)

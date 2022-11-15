@@ -1,6 +1,7 @@
 import os
 from warnings import warn
 from time import perf_counter
+from argparse import ArgumentParser
 
 def get_directories(parent_file: str) -> dict[str, str]:
     """Returns a tuple of directories to be used in the program."""
@@ -21,6 +22,42 @@ def get_directories(parent_file: str) -> dict[str, str]:
             print()
         dirs[basename] = directory + '/'
     return dirs
+
+
+class ParseWrapper:
+
+    valid_long: dict[str, tuple[int | float]] = {
+        'seed': (0, 999999)
+    }
+    short_args = ['s']
+    valid: dict[str, tuple[int | float]] = dict(zip(short_args, list(valid_long.values())))
+
+    def __init__(self, parser: ArgumentParser) -> None:
+
+        parser.add_argument('-s', '--seed', type=int, default=42,
+                            help=("dimensions of the environment " +
+                            f"[{self.valid['s'][0]}-{self.valid['s'][1]}] "))
+        parser.add_argument('-v', '--verbose', action='store_true',
+                            help=("print progress (and more) to stdout"))
+
+        self.args = parser.parse_args()
+        self.argdict = vars(self.args)
+        self.check_validity()
+
+    def __call__(self) -> dict[str, int | bool]:
+        print('\nExperiment will be ran with the following parameters:')
+        for arg, value in self.argdict.items():
+            print(f'{arg:>10}|{value}')
+        return self.argdict
+
+    def check_validity(self) -> None:
+        for arg, value in self.argdict.items():
+            if value is None: continue
+            if type(value) in (str, bool): continue
+            if value < self.valid_long[arg][0] or value > self.valid_long[arg][1]:
+                raise ValueError(f'Invalid value for argument "{arg}": {value}\n' +
+                                 f"Please choose between {self.valid_long[arg][0]} and {self.valid_long[arg][1]}")
+
 
 class ProgressBar:
     frames = [f'\033[32m\033[1m{s}\033[0m' for s in ['╀', '╄', '┾', '╆', '╁', '╅', '┽', '╃']]   # spinner frames
