@@ -5,10 +5,11 @@ import matplotlib.pyplot as plt
 from ioh import get_problem
 import ioh
 
-from utils import ProgressBar
+from utils import ProgressBar, get_directories
 
 
 def main():
+    dirs = get_directories(__file__)
     sphere = get_problem('Sphere', dimension=5)
     es = EvolutionStrategies(
         problem = sphere,
@@ -34,7 +35,7 @@ def main():
     ax.set_xlabel('generation')
     ax.set_ylabel(r'$f_\mathrm{opt}$')
     fig.tight_layout()
-    fig.savefig('../plots/sphere.png', dpi=100)
+    fig.savefig(dirs['plots']+'sphere.png', dpi=100)
     return
 
 

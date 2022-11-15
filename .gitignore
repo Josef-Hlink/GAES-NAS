@@ -1,6 +1,6 @@
 venv
-.ipynb_checkpoints
 plots
 data
+.ipynb_checkpoints
 .vscode
 __pycache__
