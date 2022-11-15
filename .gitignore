@@ -3,3 +3,4 @@ venv
 plots
 data
 .vscode
+__pycache__

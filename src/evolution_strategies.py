@@ -1,7 +1,11 @@
+import time
+
+import numpy as np
+import matplotlib.pyplot as plt
 from ioh import get_problem
 import ioh
-import numpy as np
-import time
+
+from utils import ProgressBar
 
 
 def main():
@@ -15,14 +19,22 @@ def main():
         sigma_ = 0.1,
         budget = 500_000,
         recombination = 'd',
-        individual_sigmas = True
+        individual_sigmas = True,
+        run_id = 'discrete recombination'
     )
     tic = time.perf_counter()
     x_opt, f_opt, history = es.optimize(return_history=True)
     toc = time.perf_counter()
-    print(f'time: {toc - tic:0.3f} seconds')
-    print(f'f_opt: {f_opt}')
+    print(f'time: {toc - tic:.3f} seconds')
+    print(f'f_opt: {f_opt:.5f}')
     print(f'x_opt: {x_opt}')
+    fig, ax = plt.subplots()
+    ax.plot(history)
+    ax.set_title('Sphere')
+    ax.set_xlabel('generation')
+    ax.set_ylabel(r'$f_\mathrm{opt}$')
+    fig.tight_layout()
+    fig.savefig('../plots/sphere.png', dpi=100)
     return
 
 
@@ -38,12 +50,14 @@ class EvolutionStrategies:
         sigma_: float,
         budget: int = 50_000,
         recombination: str = 'd',
-        individual_sigmas: bool = False
+        individual_sigmas: bool = False,
+        run_id: str | None = None
         ) -> None:
         
         """ Sets all parameters """
 
-        self.validate_parameters(pop_size, mu_, lambda_, tau_, sigma_, budget, recombination, individual_sigmas)
+        kwargs = locals(); kwargs.pop('self'); kwargs.pop('run_id')
+        self.validate_parameters(**kwargs)
 
         self.problem = problem
         self.pop_size = pop_size
@@ -70,6 +84,13 @@ class EvolutionStrategies:
             ig = self.recombination_intermediate_global
         )[recombination]
 
+        self.n_generations = self.budget // self.pop_size
+        self.history = np.zeros(self.n_generations)
+        self.progress = ProgressBar(self.n_generations, run_id=run_id)
+
+        self.f_opt = np.inf
+        self.x_opt = None
+
         return
 
 
@@ -81,19 +102,14 @@ class EvolutionStrategies:
         """
 
         self.initialize_population()
-        f_opt = np.inf
-        x_opt = None
 
-        history = []
-
-        while self.budget:
+        for gen in range(self.n_generations):
             self.population, self.pop_sigmas, f_opt_in_pop = self.evaluate_population()
-            history.append(f_opt_in_pop)
-            self.budget -= self.pop_size
+            self.history[gen] = f_opt_in_pop
 
-            if f_opt_in_pop < f_opt:
-                f_opt = f_opt_in_pop
-                x_opt = self.population[0]
+            if f_opt_in_pop < self.f_opt:
+                self.f_opt = f_opt_in_pop
+                self.x_opt = self.population[0]
             
             parents = self.population[:self.mu_]
             parents_sigmas = self.pop_sigmas[:self.mu_]
@@ -114,10 +130,12 @@ class EvolutionStrategies:
                 self.population = children
                 self.pop_sigmas = children_sigmas
 
+            self.progress(gen)
+
         if return_history:
-            return x_opt, f_opt, history
+            return self.x_opt, self.f_opt, self.history
         else:
-            return x_opt, f_opt
+            return self.x_opt, self.f_opt
 
 
     def initialize_population(self) -> None:
@@ -218,6 +236,7 @@ class EvolutionStrategies:
 
     def validate_parameters(
         self,
+        problem: ioh.ProblemType,
         pop_size: int,
         mu_: int,
         lambda_: int,
@@ -230,6 +249,8 @@ class EvolutionStrategies:
 
         """ Validates all parameters of __init__ """
         
+        assert isinstance(problem, ioh.ProblemType), "problem must be an instance of <ioh.ProblemType>"
+
         assert isinstance(pop_size, int), "population size must be an integer"
         assert pop_size in range(0, 500), "population size must be between 0 and 500"
 
@@ -256,7 +277,7 @@ class EvolutionStrategies:
 
         assert isinstance(budget, int), "budget must be an integer"
         assert budget > 0, "budget must be greater than 0"
-        assert budget < 1_000_000, "budget must be less than 1 million"
+        assert budget < 100_000_000, "budget must be less than 100 million"
 
         assert isinstance(individual_sigmas, bool), "individual_sigmas must be a boolean"
 
