@@ -8,10 +8,11 @@ def get_directories(parent_file: str) -> dict[str, str]:
     root = os.sep.join(src.split(os.sep)[:-1])
     data = os.path.join(root, 'data')
     results = os.path.join(root, 'results')
+    pkl = os.path.join(results, 'pkl')
     plots = os.path.join(results, 'plots')
     
     dirs: dict[str, str] = {}
-    for directory in (data, results, plots):
+    for directory in (data, results, pkl, plots):
         basename = os.path.basename(directory)
         if not os.path.exists(directory):
             os.mkdir(directory)
@@ -27,11 +28,10 @@ class ProgressBar:
     todo_char = '\033[31m\033[2m─\033[0m'   # red faint ─, reset after
     spin_frame = 0
 
-    def __init__(self, n_iters: int, run_id: str | None) -> None:
-        if run_id is not None:
-            print(run_id)
+    def __init__(self, n_iters: int, run_id: str) -> None:
         self.n_iters = n_iters
         self.len_n_iters = len(str(n_iters))
+        print(run_id)
         print('\r' + 50 * self.todo_char + ' ' + self.frames[0] + ' 0%', end='')
         self.start_ts = perf_counter()
 

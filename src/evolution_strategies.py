@@ -1,8 +1,6 @@
-import time
+from datetime import datetime
 
 import numpy as np
-import matplotlib.pyplot as plt
-from ioh import get_problem
 import ioh
 
 from utils import ProgressBar
@@ -20,12 +18,15 @@ class EvolutionStrategies:
         budget: int = 5_000,
         recombination: str = 'd',
         individual_sigmas: bool = False,
-        run_id: str | None = None
+        run_id: str | None = None,
+        verbose: bool = False
         ) -> None:
         
         """ Sets all parameters """
 
-        kwargs = locals(); kwargs.pop('self'); kwargs.pop('run_id')
+        if run_id is None:
+            run_id = datetime.now().strftime("%Y%m%d-%H%M%S")
+        kwargs = locals(); kwargs.pop('self')
         self.validate_parameters(**kwargs)
 
         self.problem = problem
@@ -36,6 +37,8 @@ class EvolutionStrategies:
         self.sigma_prop = sigma_  # what gets passed as sigma_ should be interpreted as the proportion wrt the bounds
         self.budget = budget
         self.isig = individual_sigmas
+        self.run_id = run_id
+        self.verbose = verbose
 
         self.n_dimensions = problem.meta_data.n_variables
         self.lb = problem.bounds.lb[0]
@@ -55,7 +58,8 @@ class EvolutionStrategies:
 
         self.n_generations = self.budget // self.pop_size
         self.history = np.zeros(self.n_generations)
-        self.progress = ProgressBar(self.n_generations, run_id=run_id)
+        if self.verbose:
+            self.progress = ProgressBar(self.n_generations, run_id=self.run_id)
 
         self.f_opt = np.inf
         self.x_opt = None
@@ -99,7 +103,12 @@ class EvolutionStrategies:
                 self.population = children
                 self.pop_sigmas = children_sigmas
 
-            self.progress(gen)
+            if self.verbose:
+                self.progress(gen)
+
+        if self.verbose:
+            print(f'f_opt: {self.f_opt:.5f}')
+            print(f'x_opt: {self.x_opt}')
 
         if return_history:
             return self.x_opt, self.f_opt, self.history
@@ -213,7 +222,9 @@ class EvolutionStrategies:
         sigma_: float,
         budget: int,
         recombination: str,
-        individual_sigmas: bool
+        individual_sigmas: bool,
+        run_id: any,
+        verbose: bool
         ) -> None:
 
         """ Validates all parameters of __init__ """
@@ -249,5 +260,9 @@ class EvolutionStrategies:
         assert budget < 10_000_000, "budget must be less than 100 million"
 
         assert isinstance(individual_sigmas, bool), "individual_sigmas must be a boolean"
+
+        assert len(str(run_id)) > 0, "run_id must be representable as a string"
+
+        assert isinstance(verbose, bool), "verbose must be a boolean"
 
         return
