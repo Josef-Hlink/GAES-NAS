@@ -20,9 +20,10 @@ def main():
     args = ParseWrapper(parser)()
     seed = args.get('seed')
     verbose = args.get('verbose')
-    if not os.path.exists(dirs['plots']+f'{seed}'):
-        os.mkdir(dirs['plots']+f'{seed}')
-    dirs['plots'] += f'{seed}/'
+    plot_target = 'ES' + os.sep + f'{seed}'
+    if not os.path.exists(dirs['plots'] + plot_target):
+        os.mkdir(dirs['plots'] + plot_target)
+    dirs['plots'] += plot_target + os.sep
     np.random.seed(seed)
     tic = perf_counter()
     for experiment_id in range(1, 25):
@@ -32,7 +33,7 @@ def main():
     
 
 def run_experiment(problem_id: int) -> None:
-    problem = get_problem(problem_id, dimension=5)
+    problem = get_problem(problem_id, dimension=5, problem_type='Real')
     problem_name = problem.meta_data.name
     print(f'Running experiment for {problem_name}...')
     taus = [np.sqrt(2 / problem.meta_data.n_variables) * i for i in [0.1, 0.5, 1]]

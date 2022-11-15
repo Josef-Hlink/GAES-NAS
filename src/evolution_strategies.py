@@ -18,7 +18,7 @@ class EvolutionStrategies:
         budget: int = 5_000,
         recombination: str = 'd',
         individual_sigmas: bool = False,
-        run_id: str | None = None,
+        run_id: any = None,
         verbose: bool = False
         ) -> None:
         
@@ -45,9 +45,9 @@ class EvolutionStrategies:
         self.ub = problem.bounds.ub[0]
 
         if self.pop_size == self.lambda_:
-            self.selection = ','
+            self.selection_kind = ','
         else:  # pop_size is mu + lambda
-            self.selection = '+'
+            self.selection_kind = '+'
 
         self.recombination = dict(
             d = self.recombination_discrete,
@@ -61,7 +61,7 @@ class EvolutionStrategies:
         if self.verbose:
             self.progress = ProgressBar(self.n_generations, run_id=self.run_id)
 
-        self.f_opt = np.inf
+        self.f_opt = np.inf  # problem is always a minimization one
         self.x_opt = None
 
         return
@@ -71,7 +71,7 @@ class EvolutionStrategies:
         """
         Runs the optimization algorithm and returns the best candidate solution found and its fitness.
         If return_history is set to True, it will also return the history
-        of the best candidate solutions found in each population.
+        of the best fitness value found in each population.
         """
 
         self.initialize_population()
@@ -87,19 +87,18 @@ class EvolutionStrategies:
             parents = self.population[:self.mu_]
             parents_sigmas = self.pop_sigmas[:self.mu_]
 
-            children, children_sigmas = [], []
-            for _ in range(self.lambda_):
-                c, cs = self.recombination(parents, parents_sigmas)
-                children.append(c)
-                children_sigmas.append(cs)
+            # TODO put this loop inside the recombination methods
+            children = np.zeros((self.lambda_, self.n_dimensions))
+            children_sigmas = np.zeros((self.lambda_, self.n_dimensions))
+            for i in range(self.lambda_):
+                children[i], children_sigmas[i] = self.recombination(parents, parents_sigmas)
             
-            children, children_sigmas = np.array(children), np.array(children_sigmas)
             children, children_sigmas = self.mutate(children, children_sigmas)
 
-            if self.selection == '+':
+            if self.selection_kind == '+':
                 self.population = np.concatenate((parents, children), axis=0)
                 self.pop_sigmas = np.concatenate((parents_sigmas, children_sigmas), axis=0)
-            else:  # selection is ,
+            else:  # selection kind is ,
                 self.population = children
                 self.pop_sigmas = children_sigmas
 
@@ -227,40 +226,40 @@ class EvolutionStrategies:
         verbose: bool
         ) -> None:
 
-        """ Validates all parameters of __init__ """
+        """ Validates all parameters passed to the constructor """
         
         assert isinstance(problem, ioh.ProblemType), "problem must be an instance of <ioh.ProblemType>"
 
         assert isinstance(pop_size, int), "population size must be an integer"
         assert pop_size in range(0, 500), "population size must be between 0 and 500"
 
-        assert isinstance(mu_, int), "mu must be an integer"
-        assert mu_ > 0, "mu must be greater than 0"
-        assert mu_ < pop_size, "mu must be less than population size"
+        assert isinstance(mu_, int), "mu_ must be an integer"
+        assert mu_ > 0, "mu_ must be greater than 0"
+        assert mu_ < pop_size, "mu_ must be less than population size"
 
-        assert isinstance(lambda_, int), "lambda must be an integer"
-        assert lambda_ > 0, "lambda must be greater than 0"
-        assert lambda_ < pop_size, "lambda must be less than population size"
+        assert isinstance(lambda_, int), "lambda_ must be an integer"
+        assert lambda_ > 0, "lambda_ must be greater than 0"
+        assert lambda_ <= pop_size, "lambda_ must be less than or equal to population size"
 
         assert pop_size == lambda_ + mu_ or pop_size == lambda_, "population size must be" + \
         " either number of parents + number of offspring or just number of offspring"
 
-        assert isinstance(tau_, float), "tau must be a float"
-        assert tau_ > 0, "tau must be greater than 0"
-        assert tau_ < 1, "tau must be less than 1"
+        assert isinstance(tau_, float), "tau_ must be a float"
+        assert tau_ > 0, "tau_ must be greater than 0"
+        assert tau_ < 1, "tau_ must be less than 1"
 
-        assert isinstance(sigma_, float), "sigma must be a float"
-        assert sigma_ > 0, "sigma must be greater than 0"
-        assert sigma_ < 1, "sigma must be less than 1"
-
-        assert recombination in ['d', 'i', 'dg', 'ig'], "recombination must be one of the following: 'd', 'i', 'dg', 'ig'"
+        assert isinstance(sigma_, float), "sigma_ must be a float"
+        assert sigma_ > 0, "sigma_ must be greater than 0"
+        assert sigma_ < 1, "sigma_ must be less than 1"
 
         assert isinstance(budget, int), "budget must be an integer"
         assert budget > 0, "budget must be greater than 0"
         assert budget < 10_000_000, "budget must be less than 100 million"
 
-        assert isinstance(individual_sigmas, bool), "individual_sigmas must be a boolean"
+        assert recombination in ['d', 'i', 'dg', 'ig'], "recombination must be one of the following: 'd', 'i', 'dg', 'ig'"
 
+        assert isinstance(individual_sigmas, bool), "individual_sigmas must be a boolean"
+        
         assert len(str(run_id)) > 0, "run_id must be representable as a string"
 
         assert isinstance(verbose, bool), "verbose must be a boolean"
