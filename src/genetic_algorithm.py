@@ -93,7 +93,7 @@ class GeneticAlgorithm:
         of the best fitness value found in each population.
         """
 
-        self.population = np.random.uniform(2, (self.pop_size, self.n_dimensions))
+        self.population = np.random.randint(2, size=(self.pop_size, self.n_dimensions), dtype=int)
 
         for gen in range(self.n_generations):
             self.population, self.pop_fitness = self.evaluate_population()
@@ -132,7 +132,7 @@ class GeneticAlgorithm:
         Returns the candidate solutions ranked by fitness values, along with the highest fitness value.
         """
 
-        pop_fitness = np.array([self.problem(x) for x in self.population])
+        pop_fitness = np.array([self.problem(list(x)) for x in self.population])
         ranking = np.argsort(pop_fitness)
 
         return self.population[ranking], pop_fitness[ranking]
@@ -145,7 +145,7 @@ class GeneticAlgorithm:
         probs = pop_fitness / total_fitness
         cum_probs = np.cumsum(probs)
 
-        parents = np.zeros((self.mu_, self.n_dimensions))
+        parents = np.zeros((self.mu_, self.n_dimensions), dtype=int)
 
         for i in range(self.mu_):
             r = np.random.rand()
@@ -159,7 +159,7 @@ class GeneticAlgorithm:
     def selection_tournament(self, population: np.ndarray, pop_fitness: np.ndarray) -> np.ndarray:
         """ Selects parents using tournament selection. """
 
-        parents = np.zeros((self.mu_, self.n_dimensions))
+        parents = np.zeros((self.mu_, self.n_dimensions), dtype=int)
 
         for i in range(self.mu_):
             pool = np.random.choice(self.pop_size, 2)  # TODO add parameter to determine pool size
@@ -170,7 +170,7 @@ class GeneticAlgorithm:
     def selection_rank(self, population: np.ndarray, pop_fitness: np.ndarray) -> np.ndarray:
         """ Selects parents using rank selection. """
 
-        parents = np.zeros((self.mu_, self.n_dimensions))
+        parents = np.zeros((self.mu_, self.n_dimensions), dtype=int)
         probs = np.arange(self.pop_size, 0, -1) / (self.pop_size * (self.pop_size + 1) / 2)
 
         for i in range(self.mu_):
@@ -189,7 +189,7 @@ class GeneticAlgorithm:
         probs = self.pop_fitness / total_fitness
         cum_probs = np.cumsum(probs)
 
-        parents = np.zeros((self.mu_, self.n_dimensions))
+        parents = np.zeros((self.mu_, self.n_dimensions), dtype=int)
         r = np.random.rand() / self.mu_
 
         for i in range(self.mu_):
@@ -205,7 +205,7 @@ class GeneticAlgorithm:
     def recombination_k_point(self, parents: np.ndarray) -> np.ndarray:
         """ Recombines parents using k-point crossover to produce all offspring. """
 
-        offspring = np.zeros((self.lambda_, self.n_dimensions))
+        offspring = np.zeros((self.lambda_, self.n_dimensions), dtype=int)
 
         for i in range(0, self.lambda_, 2):
             pi1, pi2 = np.random.choice(self.mu_, 2, replace=False)
@@ -227,9 +227,9 @@ class GeneticAlgorithm:
     def recombination_uniform(self, parents: np.ndarray) -> np.ndarray:
         """ Recombines parents using uniform crossover to produce all offspring. """
 
-        offspring = np.zeros((self.lambda_, self.n_dimensions))
+        offspring = np.zeros((self.lambda_, self.n_dimensions), dtype=int)
 
-        for i in range(0, self.lambda_):
+        for i in range(0, self.lambda_, 2):
             pi1, pi2 = np.random.choice(self.mu_, 2, replace=False)
             mask = np.random.choice(2, self.n_dimensions, replace=True)
             offspring[i] = parents[pi1] * mask + parents[pi2] * (1 - mask)
