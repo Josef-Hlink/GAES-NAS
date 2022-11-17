@@ -15,6 +15,7 @@ class EvolutionStrategies:
         lambda_: int,
         tau_: float,
         sigma_: float,
+        minimize: bool = False,
         budget: int = 5_000,
         recombination: str = 'd',
         individual_sigmas: bool = False,
@@ -35,9 +36,10 @@ class EvolutionStrategies:
         self.lambda_ = lambda_
         self.tau_ = tau_
         self.sigma_prop = sigma_  # what gets passed as sigma_ should be interpreted as the proportion wrt the bounds
+        self.minimize = minimize
         self.budget = budget
         self.isig = individual_sigmas
-        self.run_id = run_id
+        self.run_id = str(run_id)
         self.verbose = verbose
 
         self.n_dimensions = problem.meta_data.n_variables
@@ -75,32 +77,33 @@ class EvolutionStrategies:
         """
 
         self.initialize_population()
+        improvement = lambda x, y: x < y if self.minimize else x > y
 
         for gen in range(self.n_generations):
             self.population, self.pop_sigmas, f_opt_in_pop = self.evaluate_population()
             self.history[gen] = f_opt_in_pop
 
-            if f_opt_in_pop < self.f_opt:
+            if improvement(f_opt_in_pop, self.f_opt):
                 self.f_opt = f_opt_in_pop
                 self.x_opt = self.population[0]
-            
+
+            # deterministic selection            
             parents = self.population[:self.mu_]
             parents_sigmas = self.pop_sigmas[:self.mu_]
 
-            # TODO put this loop inside the recombination methods
-            children = np.zeros((self.lambda_, self.n_dimensions))
-            children_sigmas = np.zeros((self.lambda_, self.n_dimensions))
+            offspring = np.zeros((self.lambda_, self.n_dimensions))
+            offspring_sigmas = np.zeros((self.lambda_, self.n_dimensions))
             for i in range(self.lambda_):
-                children[i], children_sigmas[i] = self.recombination(parents, parents_sigmas)
+                offspring[i], offspring_sigmas[i] = self.recombination(parents, parents_sigmas)
             
-            children, children_sigmas = self.mutate(children, children_sigmas)
+            offspring, offspring_sigmas = self.mutate(offspring, offspring_sigmas)
 
             if self.selection_kind == '+':
-                self.population = np.concatenate((parents, children), axis=0)
-                self.pop_sigmas = np.concatenate((parents_sigmas, children_sigmas), axis=0)
+                self.population = np.concatenate((parents, offspring), axis=0)
+                self.pop_sigmas = np.concatenate((parents_sigmas, offspring_sigmas), axis=0)
             else:  # selection kind is ,
-                self.population = children
-                self.pop_sigmas = children_sigmas
+                self.population = offspring
+                self.pop_sigmas = offspring_sigmas
 
             if self.verbose:
                 self.progress(gen)
@@ -113,6 +116,20 @@ class EvolutionStrategies:
             return self.x_opt, self.f_opt, self.history
         else:
             return self.x_opt, self.f_opt
+
+
+    def evaluate_population(self) -> tuple[np.ndarray, np.ndarray, float]:
+        """
+        Evaluates the fitness of all candidate solutions in the population.
+        Returns the candidate solutions ranked by fitness values, along with their sigmas and the highest fitness value.
+        """
+        pop_fitness = np.array([self.problem(x) for x in self.population])
+        if self.minimize:
+            ranking = np.argsort(pop_fitness)
+        else:
+            ranking = np.argsort(pop_fitness)[::-1]
+
+        return self.population[ranking], self.pop_sigmas[ranking], np.max(pop_fitness)
 
 
     def initialize_population(self) -> None:
@@ -200,17 +217,6 @@ class EvolutionStrategies:
         return c, cs
 
 
-    def evaluate_population(self) -> tuple[np.ndarray, np.ndarray, float]:
-        """
-        Evaluates the fitness of all candidate solutions in the population.
-        Returns the candidate solutions ranked by fitness values, along with their sigmas and the highest fitness value.
-        """
-        pop_fitness = np.array([self.problem(x) for x in self.population])
-        ranking = np.argsort(pop_fitness)
-
-        return self.population[ranking], self.pop_sigmas[ranking], np.max(pop_fitness)
-
-
     def validate_parameters(
         self,
         problem: ioh.ProblemType,
@@ -219,6 +225,7 @@ class EvolutionStrategies:
         lambda_: int,
         tau_: float,
         sigma_: float,
+        minimize: bool,
         budget: int,
         recombination: str,
         individual_sigmas: bool,
@@ -251,6 +258,8 @@ class EvolutionStrategies:
         assert isinstance(sigma_, float), "sigma_ must be a float"
         assert sigma_ > 0, "sigma_ must be greater than 0"
         assert sigma_ < 1, "sigma_ must be less than 1"
+
+        assert isinstance(minimize, bool), "min must be a boolean"
 
         assert isinstance(budget, int), "budget must be an integer"
         assert budget > 0, "budget must be greater than 0"

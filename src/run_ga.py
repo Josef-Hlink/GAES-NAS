@@ -14,12 +14,13 @@ from utils import get_directories, ParseWrapper
 
 
 def main():
-    global dirs, seed, verbose
+    global dirs, seed, verbose, overwrite
     dirs = get_directories(__file__)
     parser = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter)
     args = ParseWrapper(parser)()
     seed = args.get('seed')
     verbose = args.get('verbose')
+    overwrite = args.get('overwrite')
     plot_target = 'GA' + os.sep + f'{seed}'
     if not os.path.exists(dirs['plots']+plot_target):
         os.mkdir(dirs['plots']+plot_target)
@@ -42,8 +43,9 @@ def run_experiment(problem_id: int) -> None:
     combinations = product(selections, recombinations, mutations)
     
     df_path = dirs['pkl']+f'GA-{problem_name}-{seed}.pkl'
-    if not os.path.exists(df_path):
-        print('No data found, creating dataframe...')
+    path_exists = os.path.exists(df_path)
+    if not path_exists or overwrite:
+        if not path_exists: print('No data found, creating dataframe...')
         tic = perf_counter()
         res_df = create_dataframe(problem, combinations)
         toc = perf_counter()
@@ -52,9 +54,13 @@ def run_experiment(problem_id: int) -> None:
     else:
         res_df = pd.read_pickle(df_path)
     
-    fig = create_plot(res_df, selections, recombinations, mutations, problem_name)
-    fig.savefig(dirs['plots']+f'GA-{problem_name}-{seed}.png', dpi=300)
-    plt.close(fig)
+    plot_path = dirs['plots']+f'GA-{problem_name}-{seed}.png'
+    plot_path_exists = os.path.exists(plot_path)
+    if not plot_path_exists or overwrite:
+        if not plot_path_exists: print('No plot found, creating plot...')
+        fig = create_plot(res_df, selections, recombinations, mutations, problem_name)
+        fig.savefig(plot_path, dpi=300)
+        plt.close(fig)
     return
 
 

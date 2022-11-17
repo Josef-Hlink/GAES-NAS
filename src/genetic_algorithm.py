@@ -14,6 +14,7 @@ class GeneticAlgorithm:
         mu_: int,
         lambda_: int,
         budget: int = 5_000,
+        minimize: bool = False,
         selection: str = 'rw',
         recombination: str = 'kp',
         mutation: str = 'u',
@@ -36,7 +37,8 @@ class GeneticAlgorithm:
         self.mu_ = mu_
         self.lambda_ = lambda_
         self.budget = budget
-        self.run_id = run_id
+        self.minimize = minimize
+        self.run_id = str(run_id)
         self.verbose = verbose
 
         self.n_dimensions = problem.meta_data.n_variables
@@ -94,17 +96,18 @@ class GeneticAlgorithm:
         """
 
         self.population = np.random.randint(2, size=(self.pop_size, self.n_dimensions), dtype=int)
+        improvement = lambda x, y: x < y if self.minimize else x > y
 
         for gen in range(self.n_generations):
             self.population, self.pop_fitness = self.evaluate_population()
             f_opt_in_pop = self.pop_fitness[0]
             self.history[gen] = f_opt_in_pop
 
-            if f_opt_in_pop > self.f_opt:
+            if improvement(f_opt_in_pop, self.f_opt):
                 self.f_opt = f_opt_in_pop
                 self.x_opt = self.population[0]
             
-            parents = self.selection(self.population, self.pop_fitness)
+            parents = self.selection()
             offspring = self.recombination(parents)
             offspring = self.mutation(offspring)
 
@@ -133,15 +136,24 @@ class GeneticAlgorithm:
         """
 
         pop_fitness = np.array([self.problem(list(x)) for x in self.population])
-        ranking = np.argsort(pop_fitness)
+        if self.minimize:
+            ranking = np.argsort(pop_fitness)
+        else:
+            ranking = np.argsort(pop_fitness)[::-1]
 
         return self.population[ranking], pop_fitness[ranking]
 
 
-    def selection_roulette_wheel(self, population: np.ndarray, pop_fitness: np.ndarray) -> np.ndarray:
+    def selection_roulette_wheel(self) -> np.ndarray:
         """ Selects parents using roulette wheel selection. """
 
+        pop_fitness = self.pop_fitness.copy()  # copy because we're going to modify it
+        if self.minimize:
+            # flip fitness values so lowest "fitness" values get higher probability
+            pop_fitness = -pop_fitness
         total_fitness = np.sum(pop_fitness)
+        if total_fitness == 0:
+            total_fitness = 1e-10
         probs = pop_fitness / total_fitness
         cum_probs = np.cumsum(probs)
 
@@ -151,53 +163,65 @@ class GeneticAlgorithm:
             r = np.random.rand()
             for j in range(self.pop_size):
                 if r < cum_probs[j]:
-                    parents[i] = population[j]
+                    parents[i] = self.population[j]
                     break
 
         return parents
 
-    def selection_tournament(self, population: np.ndarray, pop_fitness: np.ndarray) -> np.ndarray:
+    def selection_tournament(self) -> np.ndarray:
         """ Selects parents using tournament selection. """
 
         parents = np.zeros((self.mu_, self.n_dimensions), dtype=int)
 
         for i in range(self.mu_):
             pool = np.random.choice(self.pop_size, 2)  # TODO add parameter to determine pool size
-            parents[i] = population[pool[np.argmax(pop_fitness[pool])]]
+            # TODO define which arg[min/max] to use in __init__ to reduce if-statements while iterating
+            if self.minimize:
+                parents[i] = self.population[pool[np.argmin(self.pop_fitness[pool])]]
+            else:
+                parents[i] = self.population[pool[np.argmax(self.pop_fitness[pool])]]
 
         return parents
     
-    def selection_rank(self, population: np.ndarray, pop_fitness: np.ndarray) -> np.ndarray:
+    def selection_rank(self) -> np.ndarray:
         """ Selects parents using rank selection. """
 
         parents = np.zeros((self.mu_, self.n_dimensions), dtype=int)
+        # TODO define this in init once to save on performance
         probs = np.arange(self.pop_size, 0, -1) / (self.pop_size * (self.pop_size + 1) / 2)
+        cum_probs = np.cumsum(probs)
 
         for i in range(self.mu_):
             r = np.random.rand()
             for j in range(self.pop_size):
-                if r < probs[j]:
-                    parents[i] = population[j]
+                if r < cum_probs[j]:
+                    parents[i] = self.population[j]
                     break
         
         return parents
 
-    def selection_stochastic_universal(self, population: np.ndarray, pop_fitness: np.ndarray) -> np.ndarray:
+    def selection_stochastic_universal(self) -> np.ndarray:
         """ Selects parents using stochastic universal sampling. """
 
+        pop_fitness = self.pop_fitness.copy()  # copy because we're going to modify it
+        if self.minimize:
+            # convert all zeros in pop_fitness to 1e-10 to avoid division by zero
+            pop_fitness = np.where(pop_fitness == 0, 1e-10, pop_fitness)
+            # invert fitness values so lowest "fitness" values get higher prob
+            pop_fitness = 1 / pop_fitness
         total_fitness = np.sum(pop_fitness)
-        probs = self.pop_fitness / total_fitness
-        cum_probs = np.cumsum(probs)
+        cum_fitness = np.cumsum(pop_fitness)
 
         parents = np.zeros((self.mu_, self.n_dimensions), dtype=int)
-        r = np.random.rand() / self.mu_
+        fitness_step = total_fitness / self.mu_
+        pointer = np.random.uniform(0, fitness_step)
 
         for i in range(self.mu_):
             for j in range(self.pop_size):
-                if r < cum_probs[j]:
-                    parents[i] = population[j]
+                if pointer < cum_fitness[j]:
+                    parents[i] = self.population[j]
+                    pointer += fitness_step
                     break
-            r += 1 / self.mu_
 
         return parents
 
@@ -251,8 +275,8 @@ class GeneticAlgorithm:
     def mutation_bitflip(self, offspring: np.ndarray) -> np.ndarray:
         """ Mutates the offspring using bitflip mutation. """
 
-        points = np.random.choice(range(self.n_dimensions), self.mut_nb, replace=False)
         for i in range(self.lambda_):
+            points = np.random.choice(range(self.n_dimensions), self.mut_nb, replace=False)
             offspring[i][points] = not offspring[i][points]
 
         return offspring
@@ -265,6 +289,7 @@ class GeneticAlgorithm:
         mu_: int,
         lambda_: int,
         budget: int,
+        minimize: bool,
         selection: str,
         recombination: str,
         mutation: str,
@@ -299,6 +324,8 @@ class GeneticAlgorithm:
         assert isinstance(budget, int), "budget must be an integer"
         assert budget > 0, "budget must be greater than 0"
         assert budget <= 100_000_000, "budget must be less than or equal to 100 million"
+
+        assert isinstance(minimize, bool), "minimize must be a boolean"
 
         assert selection in ['rw', 'ts', 'rk', 'su'], "selection must be one of the following: 'rw', 'ts', 'rk', 'su'"
 

@@ -37,6 +37,8 @@ class ParseWrapper:
         parser.add_argument('-s', '--seed', type=int, default=42,
                             help=("dimensions of the environment " +
                             f"[{self.valid['s'][0]}-{self.valid['s'][1]}] "))
+        parser.add_argument('-o', '--overwrite', action='store_true',
+                            help=("overwrite existing data if already present"))
         parser.add_argument('-v', '--verbose', action='store_true',
                             help=("print progress (and more) to stdout"))
 

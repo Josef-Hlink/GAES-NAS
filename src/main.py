@@ -14,12 +14,13 @@ from utils import get_directories, ParseWrapper
 
 
 def main():
-    global dirs, seed, verbose
+    global dirs, seed, verbose, overwrite
     dirs = get_directories(__file__)
     parser = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter)
     args = ParseWrapper(parser)()
     seed = args.get('seed')
     verbose = args.get('verbose')
+    overwrite = args.get('overwrite')
     plot_target = 'ES' + os.sep + f'{seed}'
     if not os.path.exists(dirs['plots'] + plot_target):
         os.mkdir(dirs['plots'] + plot_target)
@@ -42,8 +43,9 @@ def run_experiment(problem_id: int) -> None:
     combinations = product(recombinations, sigmas, taus)
     
     df_path = dirs['pkl']+f'ES-{problem_name}-{seed}.pkl'
-    if not os.path.exists(df_path):
-        print('No data found, creating dataframe...')
+    pkl_path_exists = os.path.exists(df_path)
+    if not pkl_path_exists or overwrite:
+        if not pkl_path_exists: print('No data found, creating dataframe...')
         tic = perf_counter()
         res_df = create_dataframe(problem, combinations)
         toc = perf_counter()
@@ -52,9 +54,13 @@ def run_experiment(problem_id: int) -> None:
     else:
         res_df = pd.read_pickle(df_path)
     
-    fig = create_plot(res_df, recombinations, sigmas, taus, problem_name)
-    fig.savefig(dirs['plots']+f'ES-{problem_name}-{seed}.png', dpi=300)
-    plt.close(fig)
+    plot_path = dirs['plots']+f'ES-{problem_name}-{seed}.png'
+    plot_path_exists = os.path.exists(plot_path)
+    if not plot_path_exists or overwrite:
+        if not plot_path_exists: print('No plot found, creating plot...')
+        fig = create_plot(res_df, recombinations, sigmas, taus, problem_name)
+        fig.savefig(plot_path, dpi=300)
+        plt.close(fig)
     return
 
 
@@ -71,6 +77,7 @@ def create_dataframe(problem: ioh.ProblemType, combinations: product) -> pd.Data
             lambda_ = 60,
             tau_ = tau_,
             sigma_ = sigma_,
+            minimize = True,
             budget = 5_000,
             recombination = recombination,
             individual_sigmas = True,
