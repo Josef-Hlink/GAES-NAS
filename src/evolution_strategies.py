@@ -15,8 +15,8 @@ class EvolutionStrategies:
         lambda_: int,
         tau_: float,
         sigma_: float,
-        minimize: bool = False,
         budget: int = 5_000,
+        minimize: bool = False,
         recombination: str = 'd',
         individual_sigmas: bool = False,
         run_id: any = None,
@@ -61,7 +61,7 @@ class EvolutionStrategies:
         self.n_generations = self.budget // self.pop_size
         self.history = np.zeros(self.n_generations)
         if self.verbose:
-            self.progress = ProgressBar(self.n_generations, run_id=self.run_id)
+            self.progress = ProgressBar(self.n_generations, p_id=self.run_id)
 
         self.f_opt = np.inf  # problem is always a minimization one
         self.x_opt = None

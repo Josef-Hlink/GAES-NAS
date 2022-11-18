@@ -80,7 +80,7 @@ class GeneticAlgorithm:
         self.n_generations = self.budget // self.pop_size
         self.history = np.zeros((self.n_generations))
         if self.verbose:
-            self.progress = ProgressBar(self.n_generations)
+            self.progress = ProgressBar(self.n_generations, p_id=self.run_id)
 
         self.f_opt = -np.inf  # problem is always a maximization one? TODO check this
         self.x_opt = None
@@ -338,13 +338,11 @@ class GeneticAlgorithm:
 
         assert mutation in ['u', 'b'], "mutation must be one of the following: 'u', 'b'"
         if mutation == 'u':
-            assert mut_nb is None, "for uniform mutation, mut_nb must be None"
             if mut_rate is not None:
                 assert isinstance(mut_rate, float), "for u, mut_rate must be a float"
                 assert mut_rate > 0, "for u, mut_rate must be greater than 0"
                 assert mut_rate < 1, "for u, mut_rate must be less than 1"
         if mutation == 'b':
-            assert mut_rate is None, "for normal mutation, mut_rate must be None"
             if mut_rate is not None:
                 assert isinstance(mut_rate, int), "for n, mut_rate must be an integer"
                 assert mut_rate > 0, "for n, mut_rate must be greater than 0"
