@@ -1,12 +1,11 @@
 import os
 import argparse
 from time import perf_counter
-from itertools import product
 
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
-from ioh import get_problem, ProblemType
+from ioh import get_problem
 
 from genetic_algorithm import GeneticAlgorithm
 from evolution_strategies import EvolutionStrategies
@@ -20,6 +19,7 @@ def main():
     parser = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter)
     ARGS = ParseWrapper(parser)()
     
+    # --- FIXME ES is somehow hardcoded into path ----
     if ARGS['plot']:
         plot_target = 'ES' + os.sep + ARGS['run_id']
         plots_path = DIRS['plots'] + plot_target
@@ -36,7 +36,7 @@ def main():
 
     print(f'{ARGS["optimizer"]}: {PROB.meta_data.name}')
     if ARGS['verbose'] == 1 and ARGS['repetitions'] > 1:
-        progress_1 = ProgressBar(ARGS['repetitions'], ARGS['id'])
+        progress_1 = ProgressBar(ARGS['repetitions'], ARGS['run_id'])
     
     df = pd.DataFrame(columns=list(range(ARGS['repetitions'])))
     df.index.name = 'generation'
@@ -45,18 +45,21 @@ def main():
     for i in range(ARGS['repetitions']):
         
         res = run_experiment(i, ARGS['repetitions'])  # no real args, because everything is already in global ARGS
-        df.loc[:, i] = res
+        df[i] = res
 
         if ARGS['verbose'] == 1:
-            progress_1.update(i+1)
+            progress_1(i)
         
     toc = perf_counter()
     print(f'\nTotal time elapsed: {toc - tic:.3f} seconds')
 
     if ARGS['plot']:
         fig = create_plot(df)
-        fig.savefig(DIRS['plots'] + f'{ARGS["optimizer"]}_{ARGS["pid"]}_{ARGS["dimension"]}.png')
-
+        fig.savefig(DIRS['plots'] + f'{ARGS["run_id"]}_{ARGS["pid"]}.png')
+    # --- TODO rename this to something like save --- #
+    if ARGS['overwrite']:
+        df.to_csv(DIRS['csv'] + f'{ARGS["run_id"]}_{ARGS["pid"]}.csv', index=True)
+    # ----------------------------------------------- #
 
 def run_experiment(i: int, n_reps: int) -> pd.Series:
     
@@ -94,26 +97,26 @@ def run_experiment(i: int, n_reps: int) -> pd.Series:
             individual_sigmas = ARGS['individual_sigmas'],
             run_id = f'Repetition {i+1}/{n_reps}...',
             verbose = True if ARGS['verbose'] == 2 else False
-    )
-        _, _, history = optimizer.optimize(return_history=True)
+        )
+    _, _, history = optimizer.optimize(return_history=True)
     return history
 
 
 def create_plot(df: pd.DataFrame) -> plt.Figure:
-        
-        fig, ax = plt.subplots()
-        ax.set_title(f'{ARGS["optimizer"]}: {PROB.meta_data.name}')
-        ax.set_xlabel('Generation')
-        ax.set_ylabel('Fitness')
-        ax.set_yscale('log')
-        ax.grid(True)
-        ax.plot(df.mean(axis=1), label='Mean')
-        ax.plot(df.median(axis=1), label='Median')
-        ax.plot(df.min(axis=1), label='Min')
-        ax.plot(df.max(axis=1), label='Max')
-        ax.legend()
-        fig.tight_layout()
-        return fig
+    
+    fig, ax = plt.subplots()
+    ax.set_title(f'{ARGS["optimizer"]}: {PROB.meta_data.name}')
+    ax.set_xlabel('Generation')
+    ax.set_ylabel('Fitness')
+    ax.set_yscale('log')
+    ax.grid(True)
+    ax.plot(df.mean(axis=1), label='Mean')
+    ax.plot(df.median(axis=1), label='Median')
+    ax.plot(df.min(axis=1), label='Min')
+    ax.plot(df.max(axis=1), label='Max')
+    ax.legend()
+    fig.tight_layout()
+    return fig
 
 
 if __name__ == '__main__':

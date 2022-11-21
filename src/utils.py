@@ -1,10 +1,11 @@
 import os
+from argparse import ArgumentParser
 from warnings import warn
 from time import perf_counter
-from argparse import ArgumentParser
 from datetime import datetime
 
 from numpy import sqrt
+
 
 def get_directories(parent_file: str) -> dict[str, str]:
     """Returns a tuple of directories to be used in the program."""
@@ -12,18 +13,19 @@ def get_directories(parent_file: str) -> dict[str, str]:
     root = os.sep.join(src.split(os.sep)[:-1])
     data = os.path.join(root, 'data')
     results = os.path.join(root, 'results')
+    csv = os.path.join(results, 'csv')
     pkl = os.path.join(results, 'pkl')
     plots = os.path.join(results, 'plots')
     
     dirs: dict[str, str] = {}
-    for directory in (data, results, pkl, plots):
+    for directory in (data, results, csv, pkl, plots):
         basename = os.path.basename(directory)
         if not os.path.exists(directory):
             os.mkdir(directory)
             print()
             warn(f'Created empty {basename} directory at "{directory}".')
             print()
-        dirs[basename] = directory + '/'
+        dirs[basename] = directory + os.sep
     return dirs
 
 
@@ -41,12 +43,14 @@ class ParseWrapper:
                             help=f'Number of function evaluations ({BOLD("b")}udget): [1, 1 million].')
         parser.add_argument('-d', dest='dimension', type=int, default=None,
                             help="Dimension of the problem: [1, 100].")
+        # --- TODO make it so that m & l automatically scale to p --- #
         parser.add_argument('-p', dest='population_size', type=int, default=100,
                             help="Population size: [10, 1000].")
         parser.add_argument('-m', dest='mu_', type=int, default=40,
                             help="Number of parents: [2, pop_size-1].")
         parser.add_argument('-l', dest='lambda_', type=int, default=100,
                             help="Number of offspring: [2, pop_size].")
+        # ----------------------------------------------------------- #
         parser.add_argument('-s', dest='sigma_', type=float, default=0.01,
                             help=f'({BOLD("ES only")} Initial mutation strength (sigma): [0.001, 1].')
         parser.add_argument('-t', dest='tau_', type=float, default=0.1,
@@ -106,7 +110,7 @@ class ParseWrapper:
         # experiment level parameters
         parser.add_argument('-P', '--pid', type=int, default=1,
                             help=f'IOH problem ID: {BOLD("GA")}: [1, 24], {BOLD("ES")}: [1, 25],.')
-        parser.add_argument('-I', '--id', type=str, default=None,
+        parser.add_argument('-I', '--run_id', type=str, default=None,
                             help=f"""
                                 Identifier for the current run.
                                 Default will be set to <GA/ES>_<problem_id>_<date_time>.
@@ -117,7 +121,7 @@ class ParseWrapper:
                             help="Seed for the random number generator: [0, 999999].")
         parser.add_argument('-M', '--minimize', action='store_true',
                             help="Minimize the objective function.")
-        parser.add_argument('-V', '--verbose', type=int, default=2,
+        parser.add_argument('-V', '--verbose', type=int, default=1,
                             help="Determines how much is logged to stdout: [0, 2].")
         parser.add_argument('-O', '--overwrite', action='store_true',
                             help="Overwrite existing data if already present.")
@@ -132,8 +136,8 @@ class ParseWrapper:
         if self.args['optimizer'] == 'GA' and self.args['mutation'] == 'u':
             if self.args['mut_r'] is None:
                 self.args['mut_r'] = 1 / self.args['population_size']
-        if self.args['id'] is None:
-            self.args['id'] = self.args['optimizer'] + '_' + datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+        if self.args['run_id'] is None:
+            self.args['run_id'] = self.args['optimizer'] + '_' + datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
 
         self.validate_args()
 
@@ -208,8 +212,8 @@ class ParseWrapper:
         else:  # ES
             assert self.args['pid'] in range(1, 25), "For ES, problem ID must be in [1, 24]."
         
-        if self.args['id'] is not None:
-            assert len(self.args['id']) <= 50, "Identifier must be less than 50 characters long."
+        if self.args['run_id'] is not None:
+            assert len(self.args['run_id']) <= 50, "Identifier must be less than 50 characters long."
 
         assert self.args['repetitions'] in range(1, 101), "Number of repetitions must be in [1, 100]."
 
