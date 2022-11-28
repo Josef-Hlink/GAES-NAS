@@ -1,5 +1,3 @@
-from datetime import datetime
-
 import numpy as np
 import ioh
 
@@ -14,7 +12,6 @@ class GeneticAlgorithm:
         mu_: int,
         lambda_: int,
         budget: int = 5_000,
-        minimize: bool = False,
         selection: str = 'rw',
         recombination: str = 'kp',
         mutation: str = 'u',
@@ -27,8 +24,6 @@ class GeneticAlgorithm:
 
         """ Sets all parameters. """
 
-        if run_id is None:
-            run_id = datetime.now().strftime('%Y%m%d-%H%M%S')
         kwargs = locals(); kwargs.pop('self')
         self.validate_parameters(**kwargs)
 
@@ -37,7 +32,6 @@ class GeneticAlgorithm:
         self.mu_ = mu_
         self.lambda_ = lambda_
         self.budget = budget
-        self.minimize = minimize
         self.run_id = str(run_id)
         self.verbose = verbose
 
@@ -280,7 +274,7 @@ class GeneticAlgorithm:
             offspring[i][points] = not offspring[i][points]
 
         return offspring
-
+    
 
     def validate_parameters(
         self,
@@ -289,7 +283,6 @@ class GeneticAlgorithm:
         mu_: int,
         lambda_: int,
         budget: int,
-        minimize: bool,
         selection: str,
         recombination: str,
         mutation: str,
@@ -325,8 +318,6 @@ class GeneticAlgorithm:
         assert budget > 0, "budget must be greater than 0"
         assert budget <= 100_000_000, "budget must be less than or equal to 100 million"
 
-        assert isinstance(minimize, bool), "minimize must be a boolean"
-
         assert selection in ['rw', 'ts', 'rk', 'su'], "selection must be one of the following: 'rw', 'ts', 'rk', 'su'"
 
         assert recombination in ['kp', 'u'], "recombination must be one of the following: 'u', 'kp'"
@@ -344,7 +335,7 @@ class GeneticAlgorithm:
                 assert mut_rate < 1, "for u, mut_rate must be less than 1"
         if mutation == 'b':
             if mut_rate is not None:
-                assert isinstance(mut_rate, int), "for n, mut_rate must be an integer"
+                assert isinstance(mut_nb, int), "for n, mut_nb must be an integer"
                 assert mut_rate > 0, "for n, mut_rate must be greater than 0"
                 assert mut_rate < dims, "for n, mut_rate must be less than problem dimension"
         
