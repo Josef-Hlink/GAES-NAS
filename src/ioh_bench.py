@@ -47,7 +47,7 @@ def main():
         res = run_experiment(i, ARGS['repetitions'])  # no real args, because everything is already in global ARGS
         df[i] = res
 
-        if ARGS['verbose'] == 1:
+        if ARGS['verbose'] == 1 and ARGS['repetitions'] > 1:
             progress_1(i)
         
     toc = perf_counter()
