@@ -1,3 +1,5 @@
+#!/usr/bin/env python
+
 import os
 import argparse
 from time import perf_counter
@@ -16,7 +18,7 @@ from utils import get_directories, ParseWrapper, ProgressBar
 
 def main():
     
-    global DIRS, ARGS, NB, PROB
+    global DIRS, ARGS, NB, OPTS, PROB
     DIRS = get_directories(__file__)
     parser = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter)
     ARGS = ParseWrapper(parser)()
@@ -27,13 +29,15 @@ def main():
     # print 4 args per line
     for i in range(0, len(arg_names), 4):
         print('|'.join([f'{name:<20}' for name in arg_names[i:i+4]]))
+    print()
 
     dir_names = list(DIRS.keys())
     print('\033[1m' + 'DIRS:' + '\033[0m')
-    print(', '.join([f'{name}' for name in dir_names]))
+    print(', '.join([f'{name}' for name in dir_names]) + '\n')
 
     np.random.seed(ARGS['seed'])
     NB = NASBench(ARGS['problem_path'], seed=ARGS['seed'])
+    OPTS = ('maxpool3x3', 'conv1x1-bn-relu', 'conv3x3-bn-relu')
     PROB = create_problem()
     
     if ARGS['verbose'] == 1 and ARGS['repetitions'] > 1:
@@ -88,7 +92,6 @@ def run_experiment(i: int, n_reps: int) -> pd.Series:
 
 
 def create_problem() -> ProblemType:
-    global _options; _options = ('maxpool3x3', 'conv1x1-bn-relu', 'conv3x3-bn-relu')
     problem.wrap_integer_problem(
         f = nas_ioh,
         name = 'nas101',
@@ -101,7 +104,7 @@ def create_problem() -> ProblemType:
         problem_type = 'Integer'
     )
     my_logger = logger.Analyzer(
-        root = os.path.join(DIRS['logs']),
+        root = DIRS['logs'],
         folder_name = 's2233827_s2714892',
         algorithm_name = ARGS['run_id'],
         store_positions = True
@@ -112,10 +115,11 @@ def create_problem() -> ProblemType:
 
 def nas_ioh(x: np.ndarray) -> float:
     """ Gets wrapped by an ioh Problem """
-    
-    print('-' * 80)
-    
-    print(x)
+
+    print('-\n\033[1m' + 'inside nas_ioh problem' + '\033[0m\n-')
+    print(f'x = {x.tolist()}')
+    print(f'{type(x) = }')
+    print(f'{x.dtype = }')
 
     # create adjacency matrix of first 21 elements
     matrix = np.empty((7, 7), dtype=int)
@@ -125,34 +129,22 @@ def nas_ioh(x: np.ndarray) -> float:
         for j in range(i + 1, 7):
             matrix[i][j] = x[index]
             index += 1
-    
-    print(matrix)
 
     # create operations list of last 5 elements
-    ops = ['input'] + [_options[i] for i in x[21:]] + ['output']
-
-    print('ops:', ops)
+    ops = ['input'] + [OPTS[i] for i in x[21:]] + ['output']
 
     # create model spec
     model_spec = ModelSpec(matrix=matrix, ops=ops)
     
     # check validity
-    if not NB.is_valid(model_spec):
-        return -1
+    assert NB.is_valid(model_spec), f"Invalid model spec: {model_spec}"
 
     # get validation accuracy
-    tmp = NB.get_metrics_from_spec(model_spec)
-    epoch = tmp[1][108]
-    print('epoch:', epoch)
-    res = 0
-    for e in epoch:
-        print(e)
-        res += e['final_validation_accuracy']
-    res = res / 3.0
+    epoch = NB.get_metrics_from_spec(model_spec)[1][108]
+    res = sum([e['final_validation_accuracy'] for e in epoch]) / 3.0
     
-    print('res:', res)
-
-    print('\n' * 10)
+    print('-\n\033[1m' + 'nas_ioh problem code completed' + '\033[0m\n-')
+    print(f'returning res {res:.3f} with type {type(res)}')
 
     return res
 

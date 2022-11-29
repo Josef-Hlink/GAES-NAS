@@ -79,7 +79,7 @@ class GeneticAlgorithm:
         self.f_opt = -np.inf  # problem is always a maximization one? TODO check this
         self.x_opt = None
 
-        print('GA initialized')
+        print('\nGA initialized')
 
         return
 
@@ -128,23 +128,19 @@ class GeneticAlgorithm:
     def evaluate_population(self) -> tuple[np.ndarray, float]:
         """
         Evaluates the fitness of the population and returns the best fitness value found.
-        Returns the candidate solutions ranked by fitness values, along with the highest fitness value.
+        Returns the candidate solutions ranked by fitness values, along with these values.
         """
 
-        # pop_fitness = np.array([self.problem(list(x)) for x in self.population])
+        # pop_fitness = np.array([self.problem(x) for x in self.population])
 
-        pop_fitness = np.zeros(self.pop_size)
+        pop_fitness = np.zeros(self.pop_size, dtype=float)
         for i, x in enumerate(self.population):
-            print(x)
+            print('calling problem for the first time')
             fitness = self.problem(x)
-            print(i, x, fitness)
-            print()
+            print('we never get here')
             pop_fitness[i] = fitness
 
-        if self.minimize:
-            ranking = np.argsort(pop_fitness)
-        else:
-            ranking = np.argsort(pop_fitness)[::-1]
+        ranking = np.argsort(pop_fitness)[::-1]
 
         return self.population[ranking], pop_fitness[ranking]
 
