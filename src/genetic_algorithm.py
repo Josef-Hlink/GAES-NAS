@@ -79,6 +79,8 @@ class GeneticAlgorithm:
         self.f_opt = -np.inf  # problem is always a maximization one? TODO check this
         self.x_opt = None
 
+        print('GA initialized')
+
         return
 
 
@@ -129,7 +131,16 @@ class GeneticAlgorithm:
         Returns the candidate solutions ranked by fitness values, along with the highest fitness value.
         """
 
-        pop_fitness = np.array([self.problem(list(x)) for x in self.population])
+        # pop_fitness = np.array([self.problem(list(x)) for x in self.population])
+
+        pop_fitness = np.zeros(self.pop_size)
+        for i, x in enumerate(self.population):
+            print(x)
+            fitness = self.problem(x)
+            print(i, x, fitness)
+            print()
+            pop_fitness[i] = fitness
+
         if self.minimize:
             ranking = np.argsort(pop_fitness)
         else:

@@ -136,7 +136,9 @@ def nas_ioh(x: np.ndarray) -> float:
     # create model spec
     model_spec = ModelSpec(matrix=matrix, ops=ops)
     
-    print(model_spec)
+    # check validity
+    if not NB.is_valid(model_spec):
+        return -1
 
     # get validation accuracy
     tmp = NB.get_metrics_from_spec(model_spec)
