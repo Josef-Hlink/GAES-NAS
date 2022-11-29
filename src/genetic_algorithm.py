@@ -7,7 +7,7 @@ class GeneticAlgorithm:
 
     def __init__(
         self,
-        problem: ioh.ProblemType,
+        problem: ioh.problem.Integer,
         pop_size: int,
         mu_: int,
         lambda_: int,
@@ -76,10 +76,8 @@ class GeneticAlgorithm:
         if self.verbose:
             self.progress = ProgressBar(self.n_generations, p_id=self.run_id)
 
-        self.f_opt = -np.inf  # problem is always a maximization one? TODO check this
+        self.f_opt = -np.inf
         self.x_opt = None
-
-        print('\nGA initialized')
 
         return
 
@@ -92,7 +90,7 @@ class GeneticAlgorithm:
         """
 
         self.population = np.random.randint(2, size=(self.pop_size, self.n_dimensions), dtype=int)
-        improvement = lambda x, y: x < y if self.minimize else x > y
+        improvement = lambda x, y: x > y
 
         for gen in range(self.n_generations):
             self.population, self.pop_fitness = self.evaluate_population()
@@ -131,15 +129,7 @@ class GeneticAlgorithm:
         Returns the candidate solutions ranked by fitness values, along with these values.
         """
 
-        # pop_fitness = np.array([self.problem(x) for x in self.population])
-
-        pop_fitness = np.zeros(self.pop_size, dtype=float)
-        for i, x in enumerate(self.population):
-            print('calling problem for the first time')
-            fitness = self.problem(x)
-            print('we never get here')
-            pop_fitness[i] = fitness
-
+        pop_fitness = np.array([self.problem(x) for x in self.population])
         ranking = np.argsort(pop_fitness)[::-1]
 
         return self.population[ranking], pop_fitness[ranking]
@@ -149,9 +139,6 @@ class GeneticAlgorithm:
         """ Selects parents using roulette wheel selection. """
 
         pop_fitness = self.pop_fitness.copy()  # copy because we're going to modify it
-        if self.minimize:
-            # flip fitness values so lowest "fitness" values get higher probability
-            pop_fitness = -pop_fitness
         total_fitness = np.sum(pop_fitness)
         if total_fitness == 0:
             total_fitness = 1e-10
@@ -176,11 +163,7 @@ class GeneticAlgorithm:
 
         for i in range(self.mu_):
             pool = np.random.choice(self.pop_size, 2)  # TODO add parameter to determine pool size
-            # TODO define which arg[min/max] to use in __init__ to reduce if-statements while iterating
-            if self.minimize:
-                parents[i] = self.population[pool[np.argmin(self.pop_fitness[pool])]]
-            else:
-                parents[i] = self.population[pool[np.argmax(self.pop_fitness[pool])]]
+            parents[i] = self.population[pool[np.argmax(self.pop_fitness[pool])]]
 
         return parents
     
@@ -205,11 +188,6 @@ class GeneticAlgorithm:
         """ Selects parents using stochastic universal sampling. """
 
         pop_fitness = self.pop_fitness.copy()  # copy because we're going to modify it
-        if self.minimize:
-            # convert all zeros in pop_fitness to 1e-10 to avoid division by zero
-            pop_fitness = np.where(pop_fitness == 0, 1e-10, pop_fitness)
-            # invert fitness values so lowest "fitness" values get higher prob
-            pop_fitness = 1 / pop_fitness
         total_fitness = np.sum(pop_fitness)
         cum_fitness = np.cumsum(pop_fitness)
 
@@ -285,7 +263,7 @@ class GeneticAlgorithm:
 
     def validate_parameters(
         self,
-        problem: ioh.ProblemType,
+        problem: ioh.problem.Integer,
         pop_size: int,
         mu_: int,
         lambda_: int,
@@ -304,7 +282,7 @@ class GeneticAlgorithm:
 
         dims = problem.meta_data.n_variables
 
-        assert isinstance(problem, ioh.ProblemType), "problem must be an instance of <ioh.ProblemType>"
+        assert isinstance(problem, ioh.problem.Integer), "problem must be an instance of <ioh.problem.Integer>"
 
         assert isinstance(pop_size, int), "pop_size must be an integer"
         assert pop_size in range(0, 500), "pop_size must be between 0 and 500"

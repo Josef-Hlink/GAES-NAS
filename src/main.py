@@ -1,18 +1,15 @@
 #!/usr/bin/env python
 
-import os
 import argparse
 from time import perf_counter
 
 import numpy as np
 import pandas as pd
-import matplotlib.pyplot as plt
 
-from ioh import problem, get_problem, logger, OptimizationType, ProblemType
+from ioh import problem, get_problem, logger, OptimizationType
 from nasbench.api import NASBench, ModelSpec
 
 from genetic_algorithm import GeneticAlgorithm
-from evolution_strategies import EvolutionStrategies
 from utils import get_directories, ParseWrapper, ProgressBar
 
 
@@ -22,24 +19,33 @@ def main():
     DIRS = get_directories(__file__)
     parser = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter)
     ARGS = ParseWrapper(parser)()
-
-    # loop over all args and print them
-    arg_names = list(ARGS.keys())
-    print('\033[1m' + 'ARGS:' + '\033[0m')
-    # print 4 args per line
-    for i in range(0, len(arg_names), 4):
-        print('|'.join([f'{name:<20}' for name in arg_names[i:i+4]]))
-    print()
-
-    dir_names = list(DIRS.keys())
-    print('\033[1m' + 'DIRS:' + '\033[0m')
-    print(', '.join([f'{name}' for name in dir_names]) + '\n')
-
     np.random.seed(ARGS['seed'])
+
+    # create global NASBench object and specify options for usage in nas_ioh
     NB = NASBench(ARGS['problem_path'], seed=ARGS['seed'])
     OPTS = ('maxpool3x3', 'conv1x1-bn-relu', 'conv3x3-bn-relu')
-    PROB = create_problem()
-    
+
+    problem.wrap_integer_problem(
+        f = nas_ioh,
+        name = 'nas101',
+        optimization_type = OptimizationType.MAX
+    )
+    PROB = get_problem(
+        fid = 'nas101',
+        instance = 0,
+        dimension = 26,
+        problem_type = 'Integer'
+    )  
+    my_logger = logger.Analyzer(
+        root = DIRS['logs'],
+        folder_name = 's2233827_s2714892',
+        algorithm_name = ARGS['run_id'],
+        store_positions = True
+    )
+    PROB.attach_logger(my_logger)
+    # note that it is possible to detach the logger if we want to run multiple experiments with different configurations
+    # with PROB.detach_logger()
+
     if ARGS['verbose'] == 1 and ARGS['repetitions'] > 1:
         progress_1 = ProgressBar(ARGS['repetitions'], ARGS['run_id'])
     
@@ -49,19 +55,21 @@ def main():
     tic = perf_counter()
     for i in range(ARGS['repetitions']):
         
-        res = run_experiment(i, ARGS['repetitions'])  # no real args, because everything is already in global ARGS
+        res = run_experiment(i, ARGS['repetitions'])  # no real args passed here, because everything is already in global ARGS
         df[i] = res
 
         if ARGS['verbose'] == 1 and ARGS['repetitions'] > 1:
             progress_1(i)
-    
+        
+        PROB.reset()
+
     toc = perf_counter()
     print(f'\nTotal time elapsed: {toc - tic:.3f} seconds')
+    print('Saving results...')
+    df.to_csv(DIRS['csv'] + f'{ARGS["run_id"]}.csv', index=True)
 
-    # --- TODO rename this to something like save --- #
-    if ARGS['overwrite']:
-        df.to_csv(DIRS['csv'] + f'{ARGS["run_id"]}_{ARGS["pid"]}.csv', index=True)
-    # ----------------------------------------------- #
+    return
+
 
 def run_experiment(i: int, n_reps: int) -> pd.Series:
     
@@ -91,35 +99,8 @@ def run_experiment(i: int, n_reps: int) -> pd.Series:
     return history
 
 
-def create_problem() -> ProblemType:
-    problem.wrap_integer_problem(
-        f = nas_ioh,
-        name = 'nas101',
-        optimization_type = OptimizationType.MAX
-    )
-    prob = get_problem(
-        fid = 'nas101',
-        instance = 0,
-        dimension = 26,
-        problem_type = 'Integer'
-    )
-    my_logger = logger.Analyzer(
-        root = DIRS['logs'],
-        folder_name = 's2233827_s2714892',
-        algorithm_name = ARGS['run_id'],
-        store_positions = True
-    )
-    prob.attach_logger(my_logger)
-    return prob
-
-
 def nas_ioh(x: np.ndarray) -> float:
     """ Gets wrapped by an ioh Problem """
-
-    print('-\n\033[1m' + 'inside nas_ioh problem' + '\033[0m\n-')
-    print(f'x = {x.tolist()}')
-    print(f'{type(x) = }')
-    print(f'{x.dtype = }')
 
     # create adjacency matrix of first 21 elements
     matrix = np.empty((7, 7), dtype=int)
@@ -136,34 +117,19 @@ def nas_ioh(x: np.ndarray) -> float:
     # create model spec
     model_spec = ModelSpec(matrix=matrix, ops=ops)
     
+    # assert NB.is_valid(model_spec), "Invalid model spec:\n" + \
+    #     f"matrix:\n{model_spec.matrix}\n" + \
+    #     f"ops:\n{model_spec.ops}"
+    
     # check validity
-    assert NB.is_valid(model_spec), f"Invalid model spec: {model_spec}"
+    if not NB.is_valid(model_spec):
+        return -1
 
     # get validation accuracy
     epoch = NB.get_metrics_from_spec(model_spec)[1][108]
     res = sum([e['final_validation_accuracy'] for e in epoch]) / 3.0
-    
-    print('-\n\033[1m' + 'nas_ioh problem code completed' + '\033[0m\n-')
-    print(f'returning res {res:.3f} with type {type(res)}')
 
     return res
-
-
-def create_plot(df: pd.DataFrame) -> plt.Figure:
-    
-    fig, ax = plt.subplots()
-    ax.set_title(f'{ARGS["optimizer"]}: {PROB.meta_data.name}')
-    ax.set_xlabel('Generation')
-    ax.set_ylabel('Fitness')
-    ax.set_yscale('log')
-    ax.grid(True)
-    ax.plot(df.mean(axis=1), label='Mean')
-    ax.plot(df.median(axis=1), label='Median')
-    ax.plot(df.min(axis=1), label='Min')
-    ax.plot(df.max(axis=1), label='Max')
-    ax.legend()
-    fig.tight_layout()
-    return fig
 
 
 if __name__ == '__main__':

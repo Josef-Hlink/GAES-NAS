@@ -38,7 +38,7 @@ class ParseWrapper:
         parser.add_argument('-o', dest='optimizer', type=str, default='GA',
                             choices=['GA', 'ES'],
                             help="Optimizer to use.")
-        parser.add_argument('-b', dest='budget', type=int, default=5_000,
+        parser.add_argument('-b', dest='budget', type=int, default=50_000,
                             help="Number of function evaluations.")
         # --- TODO make it so that m & l automatically scale to p --- #
         parser.add_argument('-p', dest='population_size', type=int, default=100,
@@ -135,9 +135,12 @@ class ParseWrapper:
         self.validate_args()
 
     def __call__(self) -> dict[str, any]:
-        print('\nExperiment will be ran with the following parameters:')
-        for arg, value in self.args.items():
-            print(f'{arg:>20} | {value}')
+        if self.args['verbose'] > 0:
+            print('\n' + '-' * 80)
+            print('Experiment will be ran with the following parameters:')
+            for arg, value in self.args.items():
+                print(f'{arg:>19} | {value}')
+            print('-' * 80 + '\n')
         return self.args
 
     def validate_args(self) -> None:
