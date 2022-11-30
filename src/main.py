@@ -35,7 +35,7 @@ def main():
         instance = 0,
         dimension = 26,
         problem_type = 'Integer'
-    )  
+    )
     my_logger = logger.Analyzer(
         root = DIRS['logs'],
         folder_name = 's2233827_s2714892',

@@ -38,7 +38,7 @@ class ParseWrapper:
         parser.add_argument('-o', dest='optimizer', type=str, default='GA',
                             choices=['GA', 'ES'],
                             help="Optimizer to use.")
-        parser.add_argument('-b', dest='budget', type=int, default=50_000,
+        parser.add_argument('-b', dest='budget', type=int, default=5_000,
                             help="Number of function evaluations.")
         # --- TODO make it so that m & l automatically scale to p --- #
         parser.add_argument('-p', dest='population_size', type=int, default=100,
