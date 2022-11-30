@@ -120,6 +120,8 @@ class ParseWrapper:
                             help="Determines how much is logged to stdout: [0, 2].")
         parser.add_argument('--plot', action='store_true',
                             help="Plot the results with matplotlib.")
+        parser.add_argument('--log', action='store_true',
+                            help="Attach an IOH logger to the problem.")
 
         self.args = vars(parser.parse_args())
         
@@ -136,11 +138,11 @@ class ParseWrapper:
 
     def __call__(self) -> dict[str, any]:
         if self.args['verbose'] > 0:
-            print('\n' + '-' * 80)
+            print('-' * 80)
             print('Experiment will be ran with the following parameters:')
             for arg, value in self.args.items():
                 print(f'{arg:>19} | {value}')
-            print('-' * 80 + '\n')
+            print('-' * 80)
         return self.args
 
     def validate_args(self) -> None:
@@ -201,16 +203,15 @@ class ParseWrapper:
 
 
 class ProgressBar:
-    frames = [f'\033[32m\033[1m{s}\033[0m' for s in ['╀', '╄', '┾', '╆', '╁', '╅', '┽', '╃']]   # spinner frames
-    done_char = '\033[32m\033[1m━\033[0m'   # green bold ━, reset after
-    todo_char = '\033[31m\033[2m─\033[0m'   # red faint ─, reset after
+    done_char = '\033[32m' + '\033[1m' + '\u2501' + '\033[0m'   # green bold ━, reset after
+    todo_char = '\033[31m' + '\033[2m' + '\u2500' + '\033[0m'   # red faint ─, reset after
 
     def __init__(self, n_iters: int, p_id: str) -> None:
         self.n_iters = n_iters
         self.len_n_iters = len(str(n_iters))
+        start_suffix = ' ' + '0'.zfill(self.len_n_iters) + '/' + str(n_iters)
         print(p_id)
-        print('\r' + 50 * self.todo_char + ' ' + self.frames[0] + ' 0%', end='')
-        self.spin_frame = 0
+        print('\r' + 50 * self.todo_char + start_suffix, end='')
         self.start_ts = perf_counter()
 
     def __call__(self, iteration: int) -> None:
@@ -218,14 +219,14 @@ class ProgressBar:
         percentage = 100 * (iteration+1) // self.n_iters            # floored percentage
         if percentage == 100 * iteration // self.n_iters: return    # prevent printing same line multiple times
         steps = 50 * (iteration+1) // self.n_iters                  # chars representing progress
-        self.spin_frame += 1
 
-        spin_char = self.frames[self.spin_frame%8]
         bar = (steps)*self.done_char + (50-steps)*self.todo_char        # the actual bar
         
         runtime = perf_counter() - self.start_ts
-        if iteration+1 == self.n_iters:             # flush last suffix with spaces and place carriage at newline
-            suffix = ' completed in ' + f'{runtime:.2f} sec'  + ' ' * 50 + '\n'
+        if iteration+1 == self.n_iters:
+            suffix = ' completed in ' + f'{runtime:.2f} sec'
+            # add 30 - len(suffix) spaces to clear the line and move carriage to newline
+            suffix += ' ' * (30 - len(suffix)) + '\n'
         else:                                       # print iteration number
             percentage_float = (100 * (iteration+1) / self.n_iters)
             eta = (100-percentage_float) / percentage_float * runtime

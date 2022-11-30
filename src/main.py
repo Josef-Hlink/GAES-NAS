@@ -42,7 +42,8 @@ def main():
         algorithm_name = ARGS['run_id'],
         store_positions = True
     )
-    PROB.attach_logger(my_logger)
+    if ARGS['log']:
+        PROB.attach_logger(my_logger)
     # note that it is possible to detach the logger if we want to run multiple experiments with different configurations
     # with PROB.detach_logger()
 
@@ -51,6 +52,8 @@ def main():
     
     df = pd.DataFrame(columns=list(range(ARGS['repetitions'])))
     df.index.name = 'generation'
+
+    print('-' * 80)
 
     tic = perf_counter()
     for i in range(ARGS['repetitions']):
@@ -64,7 +67,7 @@ def main():
         PROB.reset()
 
     toc = perf_counter()
-    print(f'\nTotal time elapsed: {toc - tic:.3f} seconds')
+    print('\n' + f'Total time elapsed: {toc - tic:.3f} seconds')
     print('Saving results...')
     df.to_csv(DIRS['csv'] + f'{ARGS["run_id"]}.csv', index=True)
 
@@ -89,7 +92,7 @@ def run_experiment(i: int, n_reps: int) -> pd.Series:
             xp = ARGS['xp'],
             mut_rate = ARGS['mut_r'],
             mut_nb = ARGS['mut_b'],
-            run_id = f'Repetition {i+1}/{n_reps}...',
+            run_id = f'Repetition {i+1}/{n_reps}',
             verbose = True if ARGS['verbose'] == 2 else False
         )
     else:  # ES

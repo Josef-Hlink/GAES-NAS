@@ -89,7 +89,7 @@ class GeneticAlgorithm:
         of the best fitness value found in each population.
         """
 
-        self.population = np.random.randint(2, size=(self.pop_size, self.n_dimensions), dtype=int)
+        self.initialize_population()
         improvement = lambda x, y: x > y
 
         for gen in range(self.n_generations):
@@ -114,14 +114,23 @@ class GeneticAlgorithm:
                 self.progress(gen)
         
         if self.verbose:
-            print(f'f_opt: {self.f_opt:.2f}')
+            print(f'f_opt: {self.f_opt:.6f}')
             print(f'x_opt: {self.x_opt}')
+            print('-' * 80)
 
         if return_history:
             return self.x_opt, self.f_opt, self.history
         else:
             return self.x_opt, self.f_opt
 
+    def initialize_population(self) -> None:
+        """ Initializes the population with random solutions. The first 21 variable are binary, the last 5 are ternary. """
+
+        self.population = np.zeros((self.pop_size, self.n_dimensions), dtype=int)
+        self.population[:, :21] = np.random.randint(2, size=(self.pop_size, 21))
+        self.population[:, 21:] = np.random.randint(3, size=(self.pop_size, 5))
+
+        return
 
     def evaluate_population(self) -> tuple[np.ndarray, float]:
         """
@@ -220,7 +229,7 @@ class GeneticAlgorithm:
                 offspring[i][prev_point:point] = parents[pi1][prev_point:point]
                 offspring[i+1][prev_point:point] = parents[pi2][prev_point:point]
                 prev_point = point
-                temp = pi1; pi1 = pi2; pi2 = temp  # swap parent ids
+                pi1, pi2 = pi2, pi1  # swap parent ids
 
             offspring[i][prev_point:] = parents[pi1][prev_point:]
             offspring[i+1][prev_point:] = parents[pi2][prev_point:]
@@ -247,7 +256,12 @@ class GeneticAlgorithm:
         for i in range(self.lambda_):
             for j in range(self.n_dimensions):
                 if np.random.rand() < self.mut_rate:
-                    offspring[i][j] = not offspring[i][j]
+                    if j < 21:
+                        offspring[i][j] = not offspring[i][j]
+                    else:
+                        others = [0, 1, 2]
+                        others.remove(offspring[i][j])
+                        offspring[i][j] = np.random.choice(others)
 
         return offspring
     
@@ -256,7 +270,13 @@ class GeneticAlgorithm:
 
         for i in range(self.lambda_):
             points = np.random.choice(range(self.n_dimensions), self.mut_nb, replace=False)
-            offspring[i][points] = not offspring[i][points]
+            for point in points:
+                if point < 21:
+                    offspring[i][point] = not offspring[i][point]
+                else:
+                    others = [0, 1, 2]
+                    others.remove(offspring[i][point])
+                    offspring[i][point] = np.random.choice(others)
 
         return offspring
     
