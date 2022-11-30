@@ -15,10 +15,10 @@ def plot_results(run_id: str, save: bool = False):
     ax.fill_between(df.index, df.min(axis=1), df.max(axis=1), color='tab:blue', alpha=0.2)
     ax.set_xlabel('generation'); ax.set_ylabel('fitness (%)')
     ax.legend()
-    ax.set_title(
-        run_id.replace('_', ' ').replace('GA', 'Genetic Algorithm').replace('ES', 'Evolution Strategy'),
-        weight = 'bold'
-    )
+    opt, day, time = run_id.split('_')
+    opt = opt.replace('GA', 'Genetic Algorithm').replace('ES', 'Evolution Strategy')
+    title = f"{opt} on {day} at {time[:2]}:{time[2:4]}:{time[4:6]}"
+    ax.set_title(title, weight='bold')
     fig.tight_layout()
     if save: fig.savefig(DIRS['plots'] + f'{run_id}.png', dpi=300)
     else: plt.show()
