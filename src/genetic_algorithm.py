@@ -1,5 +1,3 @@
-from datetime import datetime
-
 import numpy as np
 import ioh
 
@@ -9,12 +7,11 @@ class GeneticAlgorithm:
 
     def __init__(
         self,
-        problem: ioh.ProblemType,
+        problem: ioh.problem.Integer,
         pop_size: int,
         mu_: int,
         lambda_: int,
         budget: int = 5_000,
-        minimize: bool = False,
         selection: str = 'rw',
         recombination: str = 'kp',
         mutation: str = 'u',
@@ -27,8 +24,6 @@ class GeneticAlgorithm:
 
         """ Sets all parameters. """
 
-        if run_id is None:
-            run_id = datetime.now().strftime('%Y%m%d-%H%M%S')
         kwargs = locals(); kwargs.pop('self')
         self.validate_parameters(**kwargs)
 
@@ -37,7 +32,6 @@ class GeneticAlgorithm:
         self.mu_ = mu_
         self.lambda_ = lambda_
         self.budget = budget
-        self.minimize = minimize
         self.run_id = str(run_id)
         self.verbose = verbose
 
@@ -82,7 +76,7 @@ class GeneticAlgorithm:
         if self.verbose:
             self.progress = ProgressBar(self.n_generations, p_id=self.run_id)
 
-        self.f_opt = -np.inf  # problem is always a maximization one? TODO check this
+        self.f_opt = -np.inf
         self.x_opt = None
 
         return
@@ -95,8 +89,8 @@ class GeneticAlgorithm:
         of the best fitness value found in each population.
         """
 
-        self.population = np.random.randint(2, size=(self.pop_size, self.n_dimensions), dtype=int)
-        improvement = lambda x, y: x < y if self.minimize else x > y
+        self.initialize_population()
+        improvement = lambda x, y: x > y
 
         for gen in range(self.n_generations):
             self.population, self.pop_fitness = self.evaluate_population()
@@ -120,26 +114,32 @@ class GeneticAlgorithm:
                 self.progress(gen)
         
         if self.verbose:
-            print(f'f_opt: {self.f_opt:.2f}')
+            print(f'f_opt: {self.f_opt:.6f}')
             print(f'x_opt: {self.x_opt}')
+            print('-' * 80)
 
         if return_history:
             return self.x_opt, self.f_opt, self.history
         else:
             return self.x_opt, self.f_opt
 
+    def initialize_population(self) -> None:
+        """ Initializes the population with random solutions. The first 21 variable are binary, the last 5 are ternary. """
+
+        self.population = np.zeros((self.pop_size, self.n_dimensions), dtype=int)
+        self.population[:, :21] = np.random.randint(2, size=(self.pop_size, 21))
+        self.population[:, 21:] = np.random.randint(3, size=(self.pop_size, 5))
+
+        return
 
     def evaluate_population(self) -> tuple[np.ndarray, float]:
         """
         Evaluates the fitness of the population and returns the best fitness value found.
-        Returns the candidate solutions ranked by fitness values, along with the highest fitness value.
+        Returns the candidate solutions ranked by fitness values, along with these values.
         """
 
-        pop_fitness = np.array([self.problem(list(x)) for x in self.population])
-        if self.minimize:
-            ranking = np.argsort(pop_fitness)
-        else:
-            ranking = np.argsort(pop_fitness)[::-1]
+        pop_fitness = np.array([self.problem(x) for x in self.population])
+        ranking = np.argsort(pop_fitness)[::-1]
 
         return self.population[ranking], pop_fitness[ranking]
 
@@ -148,9 +148,6 @@ class GeneticAlgorithm:
         """ Selects parents using roulette wheel selection. """
 
         pop_fitness = self.pop_fitness.copy()  # copy because we're going to modify it
-        if self.minimize:
-            # flip fitness values so lowest "fitness" values get higher probability
-            pop_fitness = -pop_fitness
         total_fitness = np.sum(pop_fitness)
         if total_fitness == 0:
             total_fitness = 1e-10
@@ -175,11 +172,7 @@ class GeneticAlgorithm:
 
         for i in range(self.mu_):
             pool = np.random.choice(self.pop_size, 2)  # TODO add parameter to determine pool size
-            # TODO define which arg[min/max] to use in __init__ to reduce if-statements while iterating
-            if self.minimize:
-                parents[i] = self.population[pool[np.argmin(self.pop_fitness[pool])]]
-            else:
-                parents[i] = self.population[pool[np.argmax(self.pop_fitness[pool])]]
+            parents[i] = self.population[pool[np.argmax(self.pop_fitness[pool])]]
 
         return parents
     
@@ -204,11 +197,6 @@ class GeneticAlgorithm:
         """ Selects parents using stochastic universal sampling. """
 
         pop_fitness = self.pop_fitness.copy()  # copy because we're going to modify it
-        if self.minimize:
-            # convert all zeros in pop_fitness to 1e-10 to avoid division by zero
-            pop_fitness = np.where(pop_fitness == 0, 1e-10, pop_fitness)
-            # invert fitness values so lowest "fitness" values get higher prob
-            pop_fitness = 1 / pop_fitness
         total_fitness = np.sum(pop_fitness)
         cum_fitness = np.cumsum(pop_fitness)
 
@@ -241,7 +229,7 @@ class GeneticAlgorithm:
                 offspring[i][prev_point:point] = parents[pi1][prev_point:point]
                 offspring[i+1][prev_point:point] = parents[pi2][prev_point:point]
                 prev_point = point
-                temp = pi1; pi1 = pi2; pi2 = temp  # swap parent ids
+                pi1, pi2 = pi2, pi1  # swap parent ids
 
             offspring[i][prev_point:] = parents[pi1][prev_point:]
             offspring[i+1][prev_point:] = parents[pi2][prev_point:]
@@ -268,7 +256,12 @@ class GeneticAlgorithm:
         for i in range(self.lambda_):
             for j in range(self.n_dimensions):
                 if np.random.rand() < self.mut_rate:
-                    offspring[i][j] = not offspring[i][j]
+                    if j < 21:
+                        offspring[i][j] = not offspring[i][j]
+                    else:
+                        others = [0, 1, 2]
+                        others.remove(offspring[i][j])
+                        offspring[i][j] = np.random.choice(others)
 
         return offspring
     
@@ -277,19 +270,24 @@ class GeneticAlgorithm:
 
         for i in range(self.lambda_):
             points = np.random.choice(range(self.n_dimensions), self.mut_nb, replace=False)
-            offspring[i][points] = not offspring[i][points]
+            for point in points:
+                if point < 21:
+                    offspring[i][point] = not offspring[i][point]
+                else:
+                    others = [0, 1, 2]
+                    others.remove(offspring[i][point])
+                    offspring[i][point] = np.random.choice(others)
 
         return offspring
-
+    
 
     def validate_parameters(
         self,
-        problem: ioh.ProblemType,
+        problem: ioh.problem.Integer,
         pop_size: int,
         mu_: int,
         lambda_: int,
         budget: int,
-        minimize: bool,
         selection: str,
         recombination: str,
         mutation: str,
@@ -304,7 +302,7 @@ class GeneticAlgorithm:
 
         dims = problem.meta_data.n_variables
 
-        assert isinstance(problem, ioh.ProblemType), "problem must be an instance of <ioh.ProblemType>"
+        assert isinstance(problem, ioh.problem.Integer), "problem must be an instance of <ioh.problem.Integer>"
 
         assert isinstance(pop_size, int), "pop_size must be an integer"
         assert pop_size in range(0, 500), "pop_size must be between 0 and 500"
@@ -325,8 +323,6 @@ class GeneticAlgorithm:
         assert budget > 0, "budget must be greater than 0"
         assert budget <= 100_000_000, "budget must be less than or equal to 100 million"
 
-        assert isinstance(minimize, bool), "minimize must be a boolean"
-
         assert selection in ['rw', 'ts', 'rk', 'su'], "selection must be one of the following: 'rw', 'ts', 'rk', 'su'"
 
         assert recombination in ['kp', 'u'], "recombination must be one of the following: 'u', 'kp'"
@@ -344,7 +340,7 @@ class GeneticAlgorithm:
                 assert mut_rate < 1, "for u, mut_rate must be less than 1"
         if mutation == 'b':
             if mut_rate is not None:
-                assert isinstance(mut_rate, int), "for n, mut_rate must be an integer"
+                assert isinstance(mut_nb, int), "for n, mut_nb must be an integer"
                 assert mut_rate > 0, "for n, mut_rate must be greater than 0"
                 assert mut_rate < dims, "for n, mut_rate must be less than problem dimension"
         

@@ -1,130 +1,148 @@
-import os
+#!/usr/bin/env python
+
 import argparse
 from time import perf_counter
-from itertools import product
 
 import numpy as np
 import pandas as pd
-import matplotlib.pyplot as plt
-from ioh import get_problem
-import ioh
 
+from ioh import problem, get_problem, logger, OptimizationType
+from nasbench.api import NASBench, ModelSpec
+
+from genetic_algorithm import GeneticAlgorithm
 from evolution_strategies import EvolutionStrategies
-from utils import get_directories, ParseWrapper
+from utils import get_directories, ParseWrapper, ProgressBar
 
 
 def main():
-    global dirs, seed, verbose, overwrite
-    dirs = get_directories(__file__)
+    
+    global DIRS, ARGS, NB, OPTS, PROB
+    DIRS = get_directories(__file__)
     parser = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter)
-    args = ParseWrapper(parser)()
-    seed = args.get('seed')
-    verbose = args.get('verbose')
-    overwrite = args.get('overwrite')
-    plot_target = 'ES' + os.sep + f'{seed}'
-    if not os.path.exists(dirs['plots'] + plot_target):
-        os.mkdir(dirs['plots'] + plot_target)
-    dirs['plots'] += plot_target + os.sep
-    np.random.seed(seed)
-    tic = perf_counter()
-    for experiment_id in range(1, 25):
-        run_experiment(experiment_id)
-    toc = perf_counter()
-    print(f'\nTotal time elapsed: {toc - tic:.3f} seconds')
-    
+    ARGS = ParseWrapper(parser)()
+    np.random.seed(ARGS['seed'])
 
-def run_experiment(problem_id: int) -> None:
-    problem = get_problem(problem_id, dimension=5, problem_type='Real')
-    problem_name = problem.meta_data.name
-    print(f'Running experiment for {problem_name}...')
-    taus = [np.sqrt(2 / problem.meta_data.n_variables) * i for i in [0.1, 0.5, 1]]
-    recombinations = ['d', 'dg', 'i', 'ig']
-    sigmas = [0.001, 0.01, 0.1]
-    combinations = product(recombinations, sigmas, taus)
+    # create global NASBench object and specify options for usage in nas_ioh
+    NB = NASBench(ARGS['problem_path'], seed=ARGS['seed'])
+    OPTS = ('maxpool3x3', 'conv1x1-bn-relu', 'conv3x3-bn-relu')
+
+    problem.wrap_integer_problem(
+        f = nas_ioh,
+        name = 'nas101',
+        optimization_type = OptimizationType.MAX
+    )
+    PROB = get_problem(
+        fid = 'nas101',
+        instance = 0,
+        dimension = 26,
+        problem_type = 'Integer'
+    )
+    if ARGS['log']:
+        my_logger = logger.Analyzer(
+            root = DIRS['logs'],
+            folder_name = 's2233827_s2714892',
+            algorithm_name = ARGS['run_id'],
+            store_positions = True
+        )
+        PROB.attach_logger(my_logger)
+        # note that it is possible to detach the logger if we want to run multiple experiments with different configurations
+        # with PROB.detach_logger()
+
+    if ARGS['verbose'] == 1 and ARGS['repetitions'] > 1:
+        progress_1 = ProgressBar(ARGS['repetitions'], ARGS['run_id'])
     
-    df_path = dirs['pkl']+f'ES-{problem_name}-{seed}.pkl'
-    pkl_path_exists = os.path.exists(df_path)
-    if not pkl_path_exists or overwrite:
-        if not pkl_path_exists: print('No data found, creating dataframe...')
-        tic = perf_counter()
-        res_df = create_dataframe(problem, combinations)
-        toc = perf_counter()
-        print(f'Runtime: {toc - tic:.3f} seconds')
-        res_df.to_pickle(df_path)
-    else:
-        res_df = pd.read_pickle(df_path)
-    
-    plot_path = dirs['plots']+f'ES-{problem_name}-{seed}.png'
-    plot_path_exists = os.path.exists(plot_path)
-    if not plot_path_exists or overwrite:
-        if not plot_path_exists: print('No plot found, creating plot...')
-        fig = create_plot(res_df, recombinations, sigmas, taus, problem_name)
-        fig.savefig(plot_path, dpi=300)
-        plt.close(fig)
+    df = pd.DataFrame(columns=list(range(ARGS['repetitions'])))
+    df.index.name = 'generation'
+
+    print('-' * 80)
+
+    tic = perf_counter()
+    for i in range(ARGS['repetitions']):
+        
+        res = run_experiment(i, ARGS['repetitions'])  # no real args passed here, because everything is already in global ARGS
+        df[i] = res
+
+        if ARGS['verbose'] == 1 and ARGS['repetitions'] > 1:
+            progress_1(i)
+        
+        PROB.reset()
+
+    toc = perf_counter()
+    print('\n' + f'Total time elapsed: {toc - tic:.3f} seconds')
+    print('Saving results...')
+    df.to_csv(DIRS['csv'] + f'{ARGS["run_id"]}.csv', index=True)
+
     return
 
 
-def create_dataframe(problem: ioh.ProblemType, combinations: product) -> pd.DataFrame:
-    df = pd.DataFrame(columns=['recombination', 'sigma', 'tau', 'best_fitness', 'history'])
-    df.index.name = 'run_id'
+def run_experiment(i: int, n_reps: int) -> pd.Series:
+    
+    history = pd.Series(dtype=np.float64)
+    history.index.name = 'generation'
 
-    for recombination, sigma_, tau_ in combinations:
-        run_id = f'{recombination}-{sigma_}-{tau_:.3f}'
-        es = EvolutionStrategies(
-            problem = problem,
-            pop_size = 100,
-            mu_ = 40,
-            lambda_ = 60,
-            tau_ = tau_,
-            sigma_ = sigma_,
-            minimize = True,
-            budget = 5_000,
-            recombination = recombination,
-            individual_sigmas = True,
-            run_id = run_id,
-            verbose = verbose
+    if ARGS['optimizer'] == 'GA':
+        optimizer = GeneticAlgorithm(
+            problem = PROB,
+            pop_size = ARGS['population_size'],
+            mu_ = ARGS['mu_'],
+            lambda_ = ARGS['lambda_'],
+            budget = ARGS['budget'],
+            selection = ARGS['selection'],
+            recombination = ARGS['recombination'],
+            mutation = ARGS['mutation'],
+            xp = ARGS['xp'],
+            mut_rate = ARGS['mut_r'],
+            mut_nb = ARGS['mut_b'],
+            run_id = f'Repetition {i+1}/{n_reps}',
+            verbose = True if ARGS['verbose'] == 2 else False
         )
-        x_opt, f_opt, history = es.optimize(return_history=True)
-        df.loc[run_id] = (recombination, sigma_, tau_, f_opt, history)
-    return df
+    else:  # ES
+        optimizer = EvolutionStrategies(
+            problem = PROB,
+            pop_size = ARGS['population_size'],
+            mu_ = ARGS['mu_'],
+            lambda_ = ARGS['lambda_'],
+            tau_ = ARGS['tau_'],
+            sigma_ = ARGS['sigma_'],
+            chunk_size = ARGS['chunk_size'],
+            budget = ARGS['budget'],
+            recombination = ARGS['recombination'],
+            individual_sigmas = ARGS['individual_sigmas'],
+            run_id = f'Repetition {i+1}/{n_reps}',
+            verbose = True if ARGS['verbose'] == 2 else False
+        )
+    
+    _, _, history = optimizer.optimize(return_history=True)
+    return history
 
 
-def create_plot(df: pd.DataFrame, recombinations: list, sigmas: list, taus: list, problem_name: str) -> plt.Figure:
-    rec_names = {
-        'd': 'Discrete',
-        'i': 'Intermediate',
-        'dg': 'Discrete Global',
-        'ig': 'Intermediate Global'
-    }
+def nas_ioh(x: np.ndarray) -> float:
+    """ Gets wrapped by an ioh Problem """
 
-    fig, axes = plt.subplots(len(recombinations), len(sigmas), figsize=(10, 10))
-    # plot histories, rows are recombinations, columns are sigmas, line colors are taus
-    for i, recombination in enumerate(recombinations):
-        for j, sigma_ in enumerate(sigmas):
-            ax: plt.Axes = axes[i, j]
-            for tau_ in taus:
-                run_id = f'{recombination}-{sigma_}-{tau_:.3f}'
-                history = df.loc[run_id]['history']
-                ax.plot(history, label=f'tau: {tau_:.3f}')
-            if i == 0:
-                ax.set_title(r'$\sigma = $' + f'{sigma_}')
-            if j == 0:
-                ax.set_ylabel(rec_names[recombination])
-            ax.tick_params(
-                axis='both',
-                which = 'both',
-                bottom = False,
-                left = False,
-                labelbottom = True,
-                labelleft = True,
-                labelsize = 6
-            )
-    axes[0, 0].legend()
-    fig.suptitle(f'Evolution Strategies ({problem_name})', fontsize=16, weight='bold')
-    fig.supxlabel('generation')
-    fig.supylabel('fitness')
-    fig.tight_layout()
-    return fig
+    # create adjacency matrix of first 21 elements
+    matrix = np.ones((7, 7), dtype=int)
+    matrix = np.triu(matrix, 1)
+    matrix[matrix == 1] = x[:21]
+
+    # create operations list of last 5 elements
+    ops = ['input'] + [OPTS[i] for i in x[21:]] + ['output']
+
+    # create model spec
+    model_spec = ModelSpec(matrix=matrix, ops=ops)
+    
+    # assert NB.is_valid(model_spec), "Invalid model spec:\n" + \
+    #     f"matrix:\n{model_spec.matrix}\n" + \
+    #     f"ops:\n{model_spec.ops}"
+    
+    # check validity
+    if not NB.is_valid(model_spec):
+        return 0
+
+    # get validation accuracy
+    epoch = NB.get_metrics_from_spec(model_spec)[1][108]
+    res = sum([e['final_validation_accuracy'] for e in epoch]) / 3.0
+
+    return res
 
 
 if __name__ == '__main__':
