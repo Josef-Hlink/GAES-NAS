@@ -9,14 +9,14 @@ class EvolutionStrategies:
     
     def __init__(
         self,
-        problem: ioh.ProblemType,
+        problem: ioh.problem.Integer,
         pop_size: int,
         mu_: int,
         lambda_: int,
         tau_: float,
         sigma_: float,
+        chunk_size: int = 3,
         budget: int = 5_000,
-        minimize: bool = False,
         recombination: str = 'd',
         individual_sigmas: bool = False,
         run_id: any = None,
@@ -36,15 +36,19 @@ class EvolutionStrategies:
         self.lambda_ = lambda_
         self.tau_ = tau_
         self.sigma_prop = sigma_  # what gets passed as sigma_ should be interpreted as the proportion wrt the bounds
-        self.minimize = minimize
+        self.chunk_size = chunk_size
         self.budget = budget
         self.isig = individual_sigmas
         self.run_id = str(run_id)
         self.verbose = verbose
 
-        self.n_dimensions = problem.meta_data.n_variables
-        self.lb = problem.bounds.lb[0]
-        self.ub = problem.bounds.ub[0]
+        self.n_dims_mat = 21 // chunk_size
+        self.lb_mat = 0
+        self.ub_mat = 2 ** chunk_size - 1
+        
+        self.n_dims_ops = 1
+        self.lb_ops = 0
+        self.ub_ops = 2 ** 5 - 1
 
         if self.pop_size == self.lambda_:
             self.selection_kind = ','
@@ -63,7 +67,7 @@ class EvolutionStrategies:
         if self.verbose:
             self.progress = ProgressBar(self.n_generations, p_id=self.run_id)
 
-        self.f_opt = np.inf  # problem is always a minimization one
+        self.f_opt = -np.inf
         self.x_opt = None
 
         return
@@ -77,10 +81,11 @@ class EvolutionStrategies:
         """
 
         self.initialize_population()
-        improvement = lambda x, y: x < y if self.minimize else x > y
+        improvement = lambda x, y: x > y
 
         for gen in range(self.n_generations):
-            self.population, self.pop_sigmas, f_opt_in_pop = self.evaluate_population()
+            self.population, self.pop_sigmas, self.pop_fitness = self.evaluate_population()
+            f_opt_in_pop = self.pop_fitness[0]
             self.history[gen] = f_opt_in_pop
 
             if improvement(f_opt_in_pop, self.f_opt):
@@ -109,8 +114,13 @@ class EvolutionStrategies:
                 self.progress(gen)
 
         if self.verbose:
-            print(f'f_opt: {self.f_opt:.5f}')
-            print(f'x_opt: {self.x_opt}')
+            print(f'f_opt: {self.f_opt:.6f}')
+            print(f'x_opt: {np.round(self.x_opt, 2)}')
+            print(f'x_opt_clp: {np.round(self.x_opt).astype(int)}')
+            x_opt_encoded = self.encode(self.x_opt[None, :])[0]
+            print(f'x_opt_enc: {x_opt_encoded}')
+            self.print_as_matrix(x_opt_encoded)
+            print('-' * 80)
 
         if return_history:
             return self.x_opt, self.f_opt, self.history
@@ -118,48 +128,64 @@ class EvolutionStrategies:
             return self.x_opt, self.f_opt
 
 
-    def evaluate_population(self) -> tuple[np.ndarray, np.ndarray, float]:
-        """
-        Evaluates the fitness of all candidate solutions in the population.
-        Returns the candidate solutions ranked by fitness values, along with their sigmas and the highest fitness value.
-        """
-        pop_fitness = np.array([self.problem(x) for x in self.population])
-        if self.minimize:
-            ranking = np.argsort(pop_fitness)
-        else:
-            ranking = np.argsort(pop_fitness)[::-1]
-
-        return self.population[ranking], self.pop_sigmas[ranking], np.max(pop_fitness)
-
-
     def initialize_population(self) -> None:
         """ Initializes population and sigmas with random values between lower and upper bounds """
 
-        self.population = np.random.uniform(
-            self.lb,
-            self.ub,
-            (self.pop_size, self.n_dimensions)
+        # create the parts of the matrix and the operators
+        self.n_dimensions = self.n_dims_mat + self.n_dims_ops
+        self.population = np.zeros((self.pop_size, self.n_dimensions), dtype=np.float32)
+        self.pop_sigmas = np.zeros((self.pop_size, self.n_dimensions), dtype=np.float32)
+
+        # initialize the matrix part
+        self.population[:, :self.n_dims_mat] = np.random.uniform(
+            low = self.lb_mat,
+            high = self.ub_mat,
+            size = (self.pop_size, self.n_dims_mat)
         )
 
-        sigma = self.sigma_prop * (self.ub - self.lb)
+        # initialize the operators part
+        self.population[:, self.n_dims_mat:] = np.random.uniform(
+            low = self.lb_ops,
+            high = self.ub_ops,
+            size = (self.pop_size, self.n_dims_ops)
+        )
 
-        if self.isig:  # every parameter has its own sigma associated with it
-            self.pop_sigmas = np.random.uniform(
-                self.lb * sigma,
-                self.ub * sigma,
-                (self.pop_size, self.n_dimensions)
+        # initialize the sigmas
+        sigma_mat = self.sigma_prop * (self.ub_mat - self.lb_mat)
+        sigma_ops = self.sigma_prop * (self.ub_ops - self.lb_ops)
+
+        if self.isig:
+            self.pop_sigmas[:, :self.n_dims_mat] = np.random.uniform(
+                low = -sigma_mat,
+                high = sigma_mat,
+                size = (self.pop_size, self.n_dims_mat)
             )
-        else:  # every parameter has the same sigma associated with it, but it still differs from candidate to candidate
-            self.pop_sigmas = np.repeat(
-                np.random.uniform(
-                    self.lb * sigma,
-                    self.ub * sigma,
-                    self.pop_size
-                ),
-                self.n_dimensions
-            ).reshape(self.pop_size, self.n_dimensions)
+            self.pop_sigmas[:, self.n_dims_mat:] = np.random.uniform(
+                low = -sigma_ops,
+                high = sigma_ops,
+                size = (self.pop_size, self.n_dims_ops)
+            )
+        else:
+            sigma_mat = np.random.uniform(low = -sigma_mat, high = sigma_mat)
+            self.pop_sigmas[:, :self.n_dims_mat] = sigma_mat
+            sigma_ops = np.random.uniform(low = -sigma_ops, high = sigma_ops)
+            self.pop_sigmas[:, self.n_dims_mat:] = sigma_ops
 
         return
+
+
+    def evaluate_population(self) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+        """
+        Evaluates the fitness of all candidate solutions in the population.
+        Returns the candidate solutions ranked by fitness values, along with their sigmas and these fitness values.
+        """
+
+        encoded_pop = self.encode(self.population)
+
+        pop_fitness = np.array([self.problem(x) for x in encoded_pop])
+        ranking = np.argsort(pop_fitness)[::-1]
+
+        return self.population[ranking], self.pop_sigmas[ranking], pop_fitness[ranking]
 
 
     def mutate(self, individuals: np.ndarray, sigmas: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
@@ -169,9 +195,11 @@ class EvolutionStrategies:
         """
         
         mutated = individuals + sigmas
-        mutated = np.clip(mutated, self.lb, self.ub)  # clip to bounds
         
         updated_sigmas = sigmas * np.exp(self.tau_ * np.random.normal(0, 1, sigmas.shape))
+
+        mutated[:, :self.n_dims_mat] = np.clip(mutated[:, :self.n_dims_mat], self.lb_mat, a_max = self.ub_mat)
+        mutated[:, self.n_dims_mat:] = np.clip(mutated[:, self.n_dims_mat:], self.lb_ops, a_max = self.ub_ops)
 
         return mutated, updated_sigmas
 
@@ -217,15 +245,68 @@ class EvolutionStrategies:
         return c, cs
 
 
+    def encode(self, individuals: np.ndarray) -> np.ndarray:
+        """
+        Encodes the individuals into a 2D array of integers.
+        We get individuals with 21//chunk_size real params for the matrix and one real param for operations.
+        We clip these real values to the respective bounds and encode them to:
+            - binary [21 bits] for the matrix, by concatenating the bits of each integer
+            - ternary [5 bits] for the operations, simply converting the single int to ternary
+        Binary and ternary are concatenated to form the final encoded individual.
+        Resulting array has shape (26 x individuals.shape[0]).
+        """
+        
+        encoded = np.zeros((individuals.shape[0], 26), dtype=int)
+        
+        # encode the matrix part
+        for i in range(self.n_dims_mat):
+            encoded[:, i * self.chunk_size: (i + 1) * self.chunk_size] = self.encode_param_bin(individuals[:, i], self.chunk_size)
+        
+        # encode the operations integer
+        encoded[:, -5:] = self.encode_param_ter(individuals[:, -1])
+
+        return encoded
+    
+
+    def encode_param_bin(self, real_values: np.ndarray, chunk_size: int) -> np.ndarray:
+        """ Encodes a slice of real values to binary: (pop_size x 1) -> (pop_size x chunk_size). """
+        
+        # encode to binary
+        encoded = np.zeros((real_values.shape[0], chunk_size), dtype=int)
+        for i in range(chunk_size):
+            encoded[:, i] = np.floor(np.round(real_values) / 2**i) % 2
+        
+        return encoded
+    
+    def encode_param_ter(self, real_values: np.array) -> np.ndarray:
+        """ Encodes a slice of real values to ternary: (ps x 1) -> (ps x 5). """
+
+        # encode to ternary
+        encoded = np.zeros((real_values.shape[0], 5), dtype=int)
+        for i in range(5):
+            encoded[:, i] = np.floor(np.round(real_values) / 3**i) % 3
+        
+        return encoded
+
+
+    def print_as_matrix(self, individual: np.ndarray) -> None:
+        """ Prints matrix part of the individual as a 7x7 triu matrix. """
+
+        mat = np.ones((7, 7), dtype=int)
+        mat = np.triu(mat, 1)
+        mat[mat == 1] = individual[:21]
+        print(f'x_opt_mat:\n{mat}')
+
+
     def validate_parameters(
         self,
-        problem: ioh.ProblemType,
+        problem: ioh.problem.Integer,
         pop_size: int,
         mu_: int,
         lambda_: int,
         tau_: float,
         sigma_: float,
-        minimize: bool,
+        chunk_size: int,
         budget: int,
         recombination: str,
         individual_sigmas: bool,
@@ -259,7 +340,9 @@ class EvolutionStrategies:
         assert sigma_ > 0, "sigma_ must be greater than 0"
         assert sigma_ < 1, "sigma_ must be less than 1"
 
-        assert isinstance(minimize, bool), "min must be a boolean"
+        assert isinstance(chunk_size, int), "chunk size must be an integer"
+        assert chunk_size > 0, "chunk size must be greater than 0"
+        assert 21 % chunk_size == 0, "chunk size a divisor of 21"
 
         assert isinstance(budget, int), "budget must be an integer"
         assert budget > 0, "budget must be greater than 0"

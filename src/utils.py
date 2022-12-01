@@ -90,10 +90,6 @@ class ParseWrapper:
         # "advanced" evolutionary parameters
         parser.add_argument('--is', dest='individual_sigmas', action='store_true',
                             help=f'({BOLD("ES only")}) Use individual mutation strengths (sigmas).')
-        parser.add_argument('--lb', dest='lower_bound', type=float,
-                            help=f'({BOLD("ES only")}) Lower bound of the problem. Must be < ub.')
-        parser.add_argument('--ub', dest='upper_bound', type=float,
-                            help=f'({BOLD("ES only")}) Upper bound of the problem. Must be > lb.')
         parser.add_argument('--xp', dest='xp', type=int, default=1,
                             help=f'({BOLD("GA w/ kp only")}) Number of crossover points in recombination.')
         parser.add_argument('--mb', dest='mut_b', type=int, default=1,
@@ -103,6 +99,8 @@ class ParseWrapper:
                                 ({BOLD("GA w/ u only")}) Mutation rate: [0, 1].
                                 Default will be set to 1/popsize.
                             ''')
+        parser.add_argument('--cs', dest='chunk_size', type=int, default=7,
+                            help=f'({BOLD("ES only")}) Number of bits represented by one real value.')
 
         # experiment level parameters
         parser.add_argument('-P', '--problem_path', type=str, default='../data/nasbench_only108.tfrecord',
@@ -173,12 +171,8 @@ class ParseWrapper:
 
         # "advanced" evolutionary parameters
         if self.args['optimizer'] == 'ES':
-            
-            if self.args['lower_bound'] is not None:
-                print('please implement assertions for lb and ub')
-            if self.args['upper_bound'] is not None:
-                print('please implement assertions for lb and ub')
-
+            assert self.args['chunk_size'] in range(1, 22), "Chunk size must be an int in [1, 21]."
+            assert 21 % self.args['chunk_size'] == 0, "Chunk size must be a divisor of 21."
         else:  # GA
             if self.args['recombination'] == 'kp':
                 assert self.args['xp'] in range(1, 26), "Number of crossover points must be in [1, 25]."
