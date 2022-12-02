@@ -110,7 +110,7 @@ class ParseWrapper:
                                 Identifier for the current run.
                                 Default will be set to <GA/ES>_<date_time>.
                             """)
-        parser.add_argument('-R', '--repetitions', type=int, default=1,
+        parser.add_argument('-R', '--repetitions', type=int, default=20,
                             help="Number of repetitions for each experiment: [1, 100].")
         parser.add_argument('-S', '--seed', type=int, default=42,
                             help="Seed for the random number generator: [0, 999999].")
@@ -121,16 +121,8 @@ class ParseWrapper:
         parser.add_argument('--log', action='store_true',
                             help="Attach an IOH logger to the problem.")
 
-        self.args = vars(parser.parse_args())
-        
-        # resolve default Nones
-        if self.args['recombination'] is None:
-            self.args['recombination'] = 'kp' if self.args['optimizer'] == 'GA' else 'd'
-        if self.args['optimizer'] == 'GA' and self.args['mutation'] == 'u':
-            if self.args['mut_r'] is None:
-                self.args['mut_r'] = 1 / self.args['population_size']
-        if self.args['run_id'] is None:
-            self.args['run_id'] = self.args['optimizer'] + '_' + datetime.now().strftime("%m-%d_%H%M%S")
+        self.defaults = ParseWrapper.resolve_default_nones(vars(parser.parse_args([])))
+        self.args = ParseWrapper.resolve_default_nones(vars(parser.parse_args()))
 
         self.validate_args()
 
@@ -139,9 +131,26 @@ class ParseWrapper:
             print('-' * 80)
             print('Experiment will be ran with the following parameters:')
             for arg, value in self.args.items():
-                print(f'{arg:>19} | {value}')
+                if self.defaults[arg] != value:
+                    print(f'\033[1m{arg:>19}\033[0m | {value}')
+                else:
+                    print(f'{arg:>19} | {value}')
             print('-' * 80)
         return self.args
+
+
+    @staticmethod
+    def resolve_default_nones(args: dict[str, any]) -> dict[str, any]:
+        """Some arguments have default values of None, because they depend on other arguments."""
+        resolved_args = args.copy()
+        if args['recombination'] is None:
+            resolved_args['recombination'] = 'kp' if args['optimizer'] == 'GA' else 'd'
+        if args['mut_r'] is None:
+            resolved_args['mut_r'] = 1 / args['population_size']
+        if args['run_id'] is None:
+            resolved_args['run_id'] = args['optimizer'] + '_' + datetime.now().strftime("%m-%d_%H%M%S")
+        return resolved_args
+
 
     def validate_args(self) -> None:
         

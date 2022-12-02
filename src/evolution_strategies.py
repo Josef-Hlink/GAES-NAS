@@ -92,7 +92,7 @@ class EvolutionStrategies:
                 self.f_opt = f_opt_in_pop
                 self.x_opt = self.population[0]
 
-            # deterministic selection            
+            # deterministic selection
             parents = self.population[:self.mu_]
             parents_sigmas = self.pop_sigmas[:self.mu_]
 
