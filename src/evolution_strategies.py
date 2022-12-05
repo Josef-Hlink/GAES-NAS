@@ -30,30 +30,30 @@ class EvolutionStrategies:
         kwargs = locals(); kwargs.pop('self')
         self.validate_parameters(**kwargs)
 
-        self.problem = problem
-        self.pop_size = pop_size
-        self.mu_ = mu_
-        self.lambda_ = lambda_
-        self.tau_ = tau_
+        self.problem = problem  # the problem to be optimized (callable IOH problem object)
+        self.pop_size = pop_size  # population size
+        self.mu_ = mu_  # number of parents
+        self.lambda_ = lambda_  # number of offspring
+        self.tau_ = tau_  # 1/√(n) for 1-s; 1/2√(n) or 1/2√(√n) for i-s --  "Schwefel, 1995" TODO: implement tau as it should be
         self.sigma_prop = sigma_  # what gets passed as sigma_ should be interpreted as the proportion wrt the bounds
-        self.chunk_size = chunk_size
-        self.budget = budget
-        self.isig = individual_sigmas
+        self.chunk_size = chunk_size  # how many discrete "bits" does each real value (gene) represent
+        self.budget = budget  # number of function evaluations allowed
+        self.isig = individual_sigmas  # flag for whether each gene has its own sigma or not
         self.run_id = str(run_id)
         self.verbose = verbose
 
-        self.n_dims_mat = 21 // chunk_size
+        self.n_dims_mat = 21 // chunk_size  # 7 for chunk_size 3, 3 for chunk_size 7
         self.lb_mat = 0
-        self.ub_mat = 2 ** chunk_size - 1
+        self.ub_mat = 2 ** chunk_size - 1  # number of integers that can be represented with chunk_size bits -1 (0 is also a valid value)
         
-        self.n_dims_ops = 1
+        self.n_dims_ops = 1  # always one (5 is prime)
         self.lb_ops = 0
-        self.ub_ops = 2 ** 5 - 1
+        self.ub_ops = 3 ** 5 - 1  # number of integers that can be represented with 5 bits -1 (0 is also a valid value)
 
         if self.pop_size == self.lambda_:
-            self.selection_kind = ','
+            self.selection_kind = ','  # children become new population
         else:  # pop_size is mu + lambda
-            self.selection_kind = '+'
+            self.selection_kind = '+'  # children are added to best parents
 
         self.recombination = dict(
             d = self.recombination_discrete,
@@ -156,19 +156,19 @@ class EvolutionStrategies:
 
         if self.isig:
             self.pop_sigmas[:, :self.n_dims_mat] = np.random.uniform(
-                low = -sigma_mat,
+                low = 0,
                 high = sigma_mat,
                 size = (self.pop_size, self.n_dims_mat)
             )
             self.pop_sigmas[:, self.n_dims_mat:] = np.random.uniform(
-                low = -sigma_ops,
+                low = 0,
                 high = sigma_ops,
                 size = (self.pop_size, self.n_dims_ops)
             )
         else:
-            sigma_mat = np.random.uniform(low = -sigma_mat, high = sigma_mat)
+            sigma_mat = np.random.uniform(low = 0, high = sigma_mat)
             self.pop_sigmas[:, :self.n_dims_mat] = sigma_mat
-            sigma_ops = np.random.uniform(low = -sigma_ops, high = sigma_ops)
+            sigma_ops = np.random.uniform(low = 0, high = sigma_ops)
             self.pop_sigmas[:, self.n_dims_mat:] = sigma_ops
 
         return
@@ -194,12 +194,12 @@ class EvolutionStrategies:
         Returns both the updated individuals as well as the updated sigmas.
         """
         
-        mutated = individuals + sigmas
+        mutated = individuals + sigmas * np.random.normal(size=individuals.shape)
         
-        updated_sigmas = sigmas * np.exp(self.tau_ * np.random.normal(0, 1, sigmas.shape))
+        updated_sigmas = sigmas * np.exp(self.tau_ * np.random.normal(size=sigmas.shape))
 
-        mutated[:, :self.n_dims_mat] = np.clip(mutated[:, :self.n_dims_mat], self.lb_mat, a_max = self.ub_mat)
-        mutated[:, self.n_dims_mat:] = np.clip(mutated[:, self.n_dims_mat:], self.lb_ops, a_max = self.ub_ops)
+        mutated[:, :self.n_dims_mat] = np.clip(mutated[:, :self.n_dims_mat], self.lb_mat, a_max=self.ub_mat)
+        mutated[:, self.n_dims_mat:] = np.clip(mutated[:, self.n_dims_mat:], self.lb_ops, a_max=self.ub_ops)
 
         return mutated, updated_sigmas
 
