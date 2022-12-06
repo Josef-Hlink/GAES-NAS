@@ -112,8 +112,6 @@ def init_ipynb(nasbench_object: NASBench, args: dict[str, any], save_to: str = N
             store_positions = True
         )
         PROB.attach_logger(my_logger)
-        # note that it is possible to detach the logger if we want to run multiple experiments with different configurations
-        # with PROB.detach_logger()
 
 
 def run_experiment(i: int, n_reps: int) -> pd.Series:
@@ -161,8 +159,7 @@ def nas_ioh(x: np.ndarray) -> float:
     """ Gets wrapped by an ioh Problem """
 
     # create adjacency matrix of first 21 elements
-    matrix = np.ones((7, 7), dtype=int)
-    matrix = np.triu(matrix, 1)
+    matrix = np.triu(np.ones((7, 7), dtype=int), 1)
     matrix[matrix == 1] = x[:21]
 
     # create operations list of last 5 elements

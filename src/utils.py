@@ -219,11 +219,8 @@ class ProgressBar:
 
     def __call__(self, iteration: int) -> None:
         """Updates and displays a progress bar on the command line"""
-        percentage = 100 * (iteration+1) // self.n_iters            # floored percentage
-        if percentage == 100 * iteration // self.n_iters: return    # prevent printing same line multiple times
         steps = 50 * (iteration+1) // self.n_iters                  # chars representing progress
-
-        bar = (steps)*self.done_char + (50-steps)*self.todo_char        # the actual bar
+        bar = (steps)*self.done_char + (50-steps)*self.todo_char    # the actual bar
         
         runtime = perf_counter() - self.start_ts
         if iteration+1 == self.n_iters:
