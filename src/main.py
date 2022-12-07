@@ -14,7 +14,38 @@ from evolution_strategies import EvolutionStrategies
 from utils import get_directories, ParseWrapper, ProgressBar
 
 
-def main(save_to: str = None):
+def init_cli(save_to: str = None):
+    global DIRS, ARGS, NB, OPTS, PROB
+    DIRS = get_directories(__file__)
+    parser = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter)
+    ARGS = ParseWrapper(parser)()
+    np.random.seed(ARGS['seed'])
+
+    # create global NASBench object and specify options for usage in nas_ioh
+    NB = NASBench(ARGS['problem_path'], seed=ARGS['seed'])
+    OPTS = ('maxpool3x3', 'conv1x1-bn-relu', 'conv3x3-bn-relu')
+
+    problem.wrap_integer_problem(
+        f = nas_ioh,
+        name = 'nas101',
+        optimization_type = OptimizationType.MAX
+    )
+    PROB = get_problem(
+        fid = 'nas101',
+        instance = 0,
+        dimension = 26,
+        problem_type = 'Integer'
+    )
+    if ARGS['log']:
+        my_logger = logger.Analyzer(
+            root = DIRS['logs'],
+            folder_name = 's2233827_s2714892',
+            algorithm_name = ARGS['run_id'],
+            store_positions = True
+        )
+        PROB.attach_logger(my_logger)
+        # note that it is possible to detach the logger if we want to run multiple experiments with different configurations
+        # with PROB.detach_logger()
     
     if ARGS['verbose'] == 1:
         print('-' * 80)
@@ -48,40 +79,6 @@ def main(save_to: str = None):
 
     return
 
-
-def init_cli(save_to: str = None):
-    global DIRS, ARGS, NB, OPTS, PROB
-    DIRS = get_directories(__file__)
-    parser = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter)
-    ARGS = ParseWrapper(parser)()
-    np.random.seed(ARGS['seed'])
-
-    # create global NASBench object and specify options for usage in nas_ioh
-    NB = NASBench(ARGS['problem_path'], seed=ARGS['seed'])
-    OPTS = ('maxpool3x3', 'conv1x1-bn-relu', 'conv3x3-bn-relu')
-
-    problem.wrap_integer_problem(
-        f = nas_ioh,
-        name = 'nas101',
-        optimization_type = OptimizationType.MAX
-    )
-    PROB = get_problem(
-        fid = 'nas101',
-        instance = 0,
-        dimension = 26,
-        problem_type = 'Integer'
-    )
-    if ARGS['log']:
-        my_logger = logger.Analyzer(
-            root = DIRS['logs'],
-            folder_name = 's2233827_s2714892',
-            algorithm_name = ARGS['run_id'],
-            store_positions = True
-        )
-        PROB.attach_logger(my_logger)
-        # note that it is possible to detach the logger if we want to run multiple experiments with different configurations
-        # with PROB.detach_logger()
-
 def init_ipynb(nasbench_object: NASBench, args: dict[str, any], save_to: str = None):
 
     global DIRS, ARGS, NB, OPTS, PROB
@@ -112,6 +109,38 @@ def init_ipynb(nasbench_object: NASBench, args: dict[str, any], save_to: str = N
             store_positions = True
         )
         PROB.attach_logger(my_logger)
+    
+    if ARGS['verbose'] == 1:
+        print('-' * 80)
+
+    if ARGS['verbose'] == 1 and ARGS['repetitions'] > 1:
+        progress_1 = ProgressBar(ARGS['repetitions'], ARGS['run_id'])
+    
+    df = pd.DataFrame(columns=list(range(ARGS['repetitions'])))
+    df.index.name = 'generation'
+
+    tic = perf_counter()
+    for i in range(ARGS['repetitions']):
+        
+        res = run_experiment(i, ARGS['repetitions'])  # no real args passed here, because everything is already in global ARGS
+        df[i] = res
+
+        if ARGS['verbose'] == 1 and ARGS['repetitions'] > 1:
+            progress_1(i)
+        
+        PROB.reset()
+
+    toc = perf_counter()
+    if ARGS['verbose'] == 1:
+        print('\n' + f'Total time elapsed: {toc - tic:.3f} seconds')
+        print('Saving results...')
+    
+    if save_to is None:
+        df.to_csv(DIRS['csv'] + f'{ARGS["run_id"]}.csv', index=True)
+    else:
+        df.to_csv(save_to + f'{ARGS["run_id"]}.csv', index=True)
+
+    return
 
 
 def run_experiment(i: int, n_reps: int) -> pd.Series:
@@ -185,4 +214,3 @@ def nas_ioh(x: np.ndarray) -> float:
 
 if __name__ == '__main__':
     init_cli()
-    main()
