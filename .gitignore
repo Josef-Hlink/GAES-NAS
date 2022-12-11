@@ -4,3 +4,14 @@ data
 .ipynb_checkpoints
 .vscode
 __pycache__
+
+report/figs
+report/*.aux
+report/*.pdf
+report/*.bbl
+report/*.blg
+report/*.fdb_latexmk
+report/*.fls
+report/*.log
+report/*.out
+report/*.synctex.gz

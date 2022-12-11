@@ -1,0 +1,654 @@
+\documentclass{article}
+
+% packages
+\usepackage{arxiv}
+\usepackage[utf8]{inputenc} % allow utf-8 input
+\usepackage[T1]{fontenc}    % use 8-bit T1 fonts
+\usepackage{hyperref}       % hyperlinks
+\usepackage{url}            % simple URL typesetting
+\usepackage{booktabs}       % professional-quality tables
+\usepackage{amsfonts}       % blackboard math symbols
+\usepackage{nicefrac}       % compact symbols for 1/2, etc.
+\usepackage{microtype}      % microtypography
+\usepackage{lipsum}
+\usepackage{siunitx}
+\usepackage[linesnumbered,ruled,vlined]{algorithm2e}
+\usepackage{float}
+\usepackage{amsmath}
+\usepackage{enumerate}
+\usepackage{cite}
+\usepackage{xcolor}
+\usepackage{caption}
+\usepackage{graphicx}
+
+
+% general config
+\graphicspath{ {./images/} }
+\newcommand{\note}[1]{\textbf{#1}}
+
+% algorithm2e commands
+\SetKwComment{Comment}{/* }{ */}
+\SetKwInOut{Input}{Input}
+\SetKwInOut{Output}{Output}
+\SetKwFor{RepTimes}{repeat}{times}{end}
+
+% title and authors
+\title{Genetic Algorithms and Evolution Strategies \\ for Neural Architecture Search}
+\author{
+    Josef Hamelink \\
+    s2233827 \\
+    \texttt{s2233827@umail.leidenuniv.nl} \\
+    \And
+    Koen van der Burg \\
+     s2714892 \\
+    \texttt{s2714892@umail.leidenuniv.nl} \\
+}
+
+\begin{document}
+
+\maketitle
+
+
+% ---------------------------------------------------------------- %
+% -------------------------- ABSTRACT ---------------------------- %
+% ---------------------------------------------------------------- %
+
+\begin{abstract}
+Neural networks, while powerful tools, can be challenging to design and train.
+Neural Architecture Search (NAS) is a method to automatically find the optimal neural network architecture for a given task, but the search space for NAS is large.
+In this paper, we present a Genetic Algorithm (GA) and an Evolution Strategy (ES) to efficiently approach the NAS problem.
+Multiple experiments have been conducted to find the optimal parameters for both algorithms.
+The results show that GA is more effective for this particular problem, as it is more fit to handle discrete problems, such as NAS in the way it is formulated in this paper.
+\end{abstract}
+
+
+% ---------------------------------------------------------------- %
+% ---------------------------- INTRO ----------------------------- %
+% ---------------------------------------------------------------- %
+
+\section{Introduction}
+\label{sec:intro}
+
+For the practical assignment of the \textit{Evolutionary Algorithms} course (2022), we have been tasked with the implementation of a Genetic Algorithm (GA) and an Evolution Strategy (ES) to tackle a \textit{Neural Architecture Search} (NAS) problem.
+While neural networks provide an extremely powerful way to solve a plethora of high-level tasks such as image classification, object detection and speech recognition, they are also complex to design, and can require tremendous time and resources to train.
+NAS is a method to automatically find the optimal neural network architecture for a given task.
+\textit{NAS-Bench-101} \cite{nasbench101} is a project that provides a dataset with the performance of over 400 thousand convolutional neural network architectures on the CIFAR-10 dataset \cite{cifar10}; a widely used benchmark for image classification.
+
+The goal of this assignment is to implement a GA and an ES that can efficiently search the space of these neural network architectures to find a good solution.
+Genetic Algorithms are generally applied to discrete problems, while Evolution Strategies are more suited for continuous (real-valued) problems.
+The NAS problem is inherently discrete, as it is the task of finding the optimal architecture for a neural network, which is described as a set of discrete variables.
+This means that applying a Evolution Strategy approach will require an additional encoding step.
+
+In order to evaluate the performance of our implementations of the evolutionary algorithms, we use the \textit{IOHexperimenter} and \textit{IOHanalyzer} components of the IOH platform, which was built by researchers at Leiden University \cite{IOH}.
+
+
+% ---------------------------------------------------------------- %
+% ---------------------------- PROBLEM --------------------------- %
+% ---------------------------------------------------------------- %
+
+\section{Problem Description}
+\label{sec:problem}
+
+As mentioned before, NAS-bench-101 is utilized to test the neural networks performance.
+Since this database only has the exact results of over 400 thousand architectures, constrictions to these networks have to be made.
+NAS-bench-101 restricts the search of neural network configurations to relatively small, feed-forward only, structures.
+These small structures are often labeled ``cells''.
+These cells are integrated into the larger NAS-bench architecture.
+This architecture is initialized with a convolutional stem layer, consisting of one 3x3 convolution with 128 output channels.
+This data is fed into the first of three stacks.
+Each stack holds 3 cells, followed by a down-sample layer.
+The down sampling layer uses max-pooling to halve the images height and width, concurrently doubling the channel count.
+After passing through 3 stacks and 2 down-sample layers, a final global average pooling layer is applied, as well as a dense (softmax) layer \cite{NAS}.
+
+Each cell has the same structure, which can be constructed from a space of different directed a-cyclic graphs.
+In order to limit the size of the space, allowing exhaustive enumeration, some constrains are applied.
+Each structure is limited to a maximum of 7 nodes, with two of them being labelled as the IN and OUT.
+The remaining 5 nodes can be used for 3 different operations; a 3x3 convolution, a 1x1 convolution or a 3x3 max-pool (MP).
+Limiting the amount of nodes also caps the maximum number of possible edges at 9.
+
+For this specific assignment the encoding of the NAS problem is replaced by a set of discrete variables $x_i, i \in [1, 26]$.
+Where the values $x_i, i \in [1, 21]$ are either 0 or 1, representing the upper-triangular binary matrix of NAS problem.
+This triangle of values represent the connected nodes of the NAS bench cell architecture.
+The latter values $x_i \in [22,26]$ are either 0,1 or 2, representing the three different operations (3x3 conv, 1x1 conv and 3x3 MP respectively) possible on the 5 nodes of the aforementioned \textit{cell}.
+In order to calculate the fitness value of a population ($x = \{x_1, \dots, x_26\})$, the accuracy rate from the NAS bench-marking is used, which ranges from 0 to 1.
+This accuracy rate of 1 corresponds to 100\% accuracy of the neural network.
+
+A candidate solution $x = \{x_1, \dots , x_{26}\}$ maps to an input of NAS-bench as; 
+
+$ \begin{bmatrix}
+0 & x_1 & x_2 & x_3    & x_4    & x_5    & x_6    \\
+0 & 0   & x_7 & x_8    & x_9    & x_{10} & x_{11} \\
+0 & 0   & 0   & x_{12} & x_{13} & x_{14} & x_{15} \\
+0 & 0   & 0   & 0      & x_{16} & x_{17} & x_{18} \\
+0 & 0   & 0   & 0      & 0      & x_{19} & x_{20} \\
+0 & 0   & 0   & 0      & 0      & 0      & x_{21} \\
+0 & 0   & 0   & 0      & 0      & 0      & 0 
+\end{bmatrix}  $
+
+And the operations at the 7 different nodes = [input, $x_{22}$, $x_{23}$, $x_{24}$, $x_{25}$, $x_{26}$, output]
+
+
+% ---------------------------------------------------------------- %
+% ------------------------------ GA ------------------------------ %
+% ---------------------------------------------------------------- %
+
+\section{Genetic Algorithm}
+\label{sec:GA}
+
+Now that the general problem is understood properly, a more in depth description and solution can be discussed. Solving the NAS problem, where; $f: \mathbb{Z}^n \rightarrow \mathbb{R}$ is to be maximized. The problem can be defined as (for n = 26):
+
+\begin{itemize}
+    \item $f(z) \to \text{max}, z_i \in \{0, 1\} \: \mathrm{for} \: i \in [1, 21], \: z_i \in \{0, 1, 2\} \: \mathrm{for} \: i \in [22, 26]$
+    \item It is known that $f \in [0,1]$
+    \item And an invalid NAS solution is denoted as: $f(z) = 0$
+\end{itemize}
+
+This essentially means that by using a GA algorithm, find a architecture which scores as high as possible, through the alteration of a 26 integer bit-string. 
+
+In order to find the best GA different combinations of selection, recombination and mutation are combined. 
+Each combination, with different parameter settings might yield a better result, therefor testing is needed. 
+The four different population selection methods that have been implemented are; roulette wheel, tournament, ranking and stochastic universal selection (SUS). 
+Roulette wheel selection ranks the possible solutions on their fitness and based on their fitness a area on a pie chart is dedicated. 
+Increasing the area with higher fitness scores. 
+Parents are selected by "spinning" the pie chart and choosing the solution it lands on, thus higher fitness individuals have a higher chance of being selected as a parent. 
+Tournament selection involves the use of tournaments, selecting $k$ individuals from the population, and selecting the highest scoring (best fitness) solution. 
+Increasing the tournament size increases the chance of stronger individuals to be chosen, since there are more options to pick from. 
+The third selection method, ranking, is similar to the roulette wheel method. With ranking, the population is sorted based on their fitness value, where the lowest fitness is ranked 1.
+If for example, the population number is 10, the probability distribution is $(0.1, 0.2, \dots, 1.0)$.
+Then the cumulative fitness is calculated and transferred to a roulette wheel. 
+This method prevents fit, but non-optimal, solutions dominating the whole population.
+Decreasing the convergence rate and loss of genetic diversity, allowing a better optimization process. 
+The final selection method, SUS, is a derivative of fitness proportionate selection (FPS). 
+FPS picks potential solutions by repeated random sampling, whereas SUS uses a single random value to sample individuals by choosing them at evenly space intervals. 
+This gives opportunity to weaker individuals of the population, and prevents over saturation of the fittest members.  
+
+After selecting the new population, recombination takes place to introduce variance. 
+Two different recombination methods have been implemented; k-point crossover and uniform recombination.
+K-point crossover places $k$ amount of imaginary points in parent 1 and corresponding points in parent 2. 
+Part of the solution between each 2 points is swapped between parent 1 and parent 2, creating novel solutions. 
+Increasing $k$, causes more crossovers to take place. 
+The second method, uniform crossover, is similar to k-point crossover. 
+The difference here is that each bit ($\{x_1, \dots x_{21}\}$) is assigned to either child 1 or 2, the corresponding bit is appointed to the other child. 
+
+When selection and recombination have taken place, mutations are introduced, to further increase small variance when compared to the original solution set.
+In our case, either an uniform or bitflip mutation is applied.
+Uniform mutation choose a certain percentage of bits, for example 5-10\%, at random and set them to random values. 
+This percentages stays at the same rate throughout the training. 
+Non-uniform mutation lowers the mutation rate as the population gets fitter.
+
+
+\begin{algorithm}[htbp]
+
+    \label{alg:GA}
+    \caption{Genetic Algorithm}
+    \SetAlgoLined
+    \DontPrintSemicolon
+
+    \Input{
+        $f$,
+        \texttt{N},
+        $\lambda$,
+        $\mu$,
+        \texttt{budget},
+        \texttt{recombination},
+        \texttt{selection},
+        \texttt{mutation}
+    }
+    \Output{$x^*$, $f^*$}
+
+    \BlankLine
+
+    % define x_opt & f_opt
+    $x^* \gets$ \texttt{None}\;
+    $f^* \gets - \infty$;
+
+    \BlankLine
+
+    % initialize population
+    $\mathbf{X} \gets$ [] \Comment*[r]{$\mathbf{X}$ will contain the population of solutions}
+    \RepTimes{\texttt{N}}{
+        $x_{i, i \in [0, \dots, 20]} \gets U([0, 1])$ \Comment*[r]{matrix part (binary)}
+        $x_{i, i \in [21, \dots, 25]} \gets U([0, 1, 2])$ \Comment*[r]{operations part (ternary)}
+        append $x$ to $\mathbf{X}$\;
+    }
+
+    \BlankLine
+
+    % main loop
+    \While{\texttt{budget}}{
+        
+        % evaluate population
+        $\mathbf{F}$ $\gets$ [$f(x)$ for $x$ in $\mathbf{X}$] \Comment*[r]{evaluate population with fitness function $f$}
+        \texttt{budget} $\gets$ \texttt{budget} - \texttt{N}\;
+        
+        % update x_opt & f_opt
+        \If{\texttt{max} ($\mathbf{F}$) $> f^*$}{
+            $f^* \gets$ \texttt{max}($\mathbf{F}$)\;
+            $x^* \gets$ $\mathbf{X}$[\texttt{argmax}($\mathbf{F}$)] \Comment*[r]{if better fitness value found, update best solution}
+        }
+
+        % evolutionary operators
+        \texttt{parents} $\gets$ \texttt{selection}($\mathbf{X}$, $\mathbf{F}$, $\mu$) \Comment*[r]{select $\mu$ parents}
+        \texttt{offspring} $\gets$ \texttt{recombination}(\texttt{parents}, $\lambda$) \Comment*[r]{produce $\lambda$ offspring}
+        \texttt{offspring} $\gets$ \texttt{mutation}(\texttt{offspring}) \Comment*[r]{mutate offspring}
+
+        % update population for next iteration
+        \eIf{\texttt{N} $=\lambda$}{
+            $\mathbf{X} \gets$ \texttt{offspring}\;
+        }{
+            $\mathbf{X} \gets$ \texttt{parents} + \texttt{offspring}\;
+        }
+    }
+    \BlankLine
+    \Return{$x^*, f^*$}
+
+\end{algorithm}
+
+
+% ---------------------------------------------------------------- %
+% ------------------------------ ES ------------------------------ %
+% ---------------------------------------------------------------- %
+
+\subsection{Evolution Strategy}
+\label{sec:ES}
+
+The second task, similar to the first is to solve the NAS problem $f: \mathbb{Z}^n \rightarrow \mathbb{R}$, has to be maximized. 
+Here the same assumptions can be made as with the GA. 
+The ES algorithm uses, similar to GA, operators to evolve solutions.
+This paper tests one mutation variator, four different recombination techniques and two different selection operators.
+
+The four different recombination techniques that have been implemented are; discrete (global) and intermediate (global) recombination. Discrete recombination takes two parent solutions, each parameter of the resulting child is chosen randomly from each parent with equal probability. The global variant does not choose from two parents, but chooses each parameter from all the available parents, each having equal chance of being selected. The third recombination method, intermediate, selects 2 parents and averages the parameters between the parents. The resulting average parameters is the recombined child. The global variant averages the parameters over all the parents. Thus, parameter 1 of the child is equal to the average of parameter 1 of all the parents. 
+
+One-$\sigma$ mutation takes the newly recombined individuals and alters their value individually with a parameter named $\sigma$.
+After mutation, the $\sigma$ values are adjusted with step-size $\tau$, together they indicate the mutation strength of the individual.
+
+After parents have been recombined, and the resulting children have been mutated, a new generation will be selected. There are two different deterministic selection methods; \textit{comma-selection} ($\mu , \lambda$) and \textit{plus-selection} ($\mu + \lambda$). Comma-selection states that the children replace the parents directly each iteration of the algorithm. Whereas plus-selection makes a selection of parents and children to define the new iteration population \cite{ES_3} \cite{ES_1}. 
+
+The ES algorithm operators cause the use of real values as opposed to integers. 
+But, NAS bench-marker requires integer values in order to understand which architecture is constructed. 
+Therefore an encoding function is implemented, encoding individuals into a 2D array of integers. 
+This is done by chunking the individuals, both the binary and ternary part, and clipping them to the nearest allowed integer. Both parts are then recombined into an encoded individual, which can be utilized by the bench-marker. No decoding is needed since the original real values are used for the next generation. 
+
+\vspace{-3mm}
+
+% \section{Algorithms}
+% Having gone over the important operators of the algorithms, the algorithm itself can be considered.
+% Below we show the pseudo code of both algorithms, some parts have been simplified, to deliver a understandable overview. 
+% To support readability of the provided code with this project, a workflow has been added \ref{fig:A_workflow}. 
+
+
+\begin{algorithm}[htbp]
+
+    \label{alg:ES}
+    \caption{Evolution Strategy}
+    \SetAlgoLined
+    \DontPrintSemicolon
+
+    \Input{
+        $f$,
+        \texttt{N},
+        $\lambda$,
+        $\mu$,
+        $\sigma$,
+        $\tau$,
+        \texttt{budget},
+        \texttt{recombination},
+        \texttt{chunk\_size}
+    }
+    \Output{$x^*$, $f^*$}
+
+    \BlankLine
+
+    % define x_opt & f_opt
+    $x^* \gets$ \texttt{None}\;
+    $f^* \gets - \infty$;
+    
+    \BlankLine
+
+    % initialize population
+    \texttt{lb\_mat}, \texttt{lb\_ops} $\gets$ 0, 0 \Comment*[r]{lower bounds}
+    \texttt{ub\_mat} $\gets$ $2^\texttt{chunk\_size}-1$ \Comment*[r]{upper bounds are dependent on chunk size}
+    \texttt{ub\_ops} $\gets$ $3^5-1$ \Comment*[r]{upper bounds, "chunk size" is always 5}
+    \texttt{ops\_idx} $\gets 21 / \texttt{chunk\_size}$ \Comment*[r]{define index of operations gene}
+    $\mathbf{X} \gets$ [] \Comment*[r]{$\mathbf{X}$ will contain the solutions, along with their sigmas}
+    \RepTimes{\texttt{N}}{
+        $x_{i, \: i \in [0, \; \dots, \; \texttt{ops\_idx}-1]} \gets U(\{\texttt{lb\_mat}, \texttt{ub\_mat}\})$
+            \Comment*[r]{matrix genes ($\mathbb{R}$)}
+        $x_{i, \: i = \texttt{ops\_idx}} \gets U(\{\texttt{lb\_ops}, \texttt{ub\_ops}\})$
+            \Comment*[r]{operations gene ($\mathbb{R}$)}
+        $\sigma_{x, \: \texttt{mat}} \gets \sigma * U(\{\texttt{lb\_mat}, \texttt{ub\_mat}\})$
+            \Comment*[r]{initialize $\sigma$ for matrix part ($\mathbb{R}$)}
+        $\sigma_{x, \: \texttt{ops}} \gets \sigma * U(\{\texttt{lb\_ops}, \texttt{ub\_ops}\})$
+            \Comment*[r]{initialize $\sigma$ for operations part ($\mathbb{R}$)}
+        append $(x, \sigma_x)$ to $\mathbf{X}$\;
+    }
+
+    \BlankLine
+
+    % main loop
+    \While{\texttt{budget}}{
+        
+        % evaluate population
+        $\mathbf{X}_{\texttt{encoded}}$ $\gets$ [$\texttt{encode}(x)$ for $x, \_$ in $\mathbf{X}$]
+            \Comment*[r]{encode population to binary \& ternary}
+        $\mathbf{F}$ $\gets$ [$f(x_\texttt{e})$ for $x_\texttt{e}$ in $\mathbf{X}_{\texttt{encoded}}$]
+            \Comment*[r]{evaluate population with fitness function $f$}
+        \texttt{budget} $\gets$ \texttt{budget} - \texttt{N}\;
+        % update x_opt & f_opt
+        \If{\texttt{max} ($\mathbf{F}$) $> f^*$}{
+            $f^* \gets$ \texttt{max}($\mathbf{F}$)\;
+            \_, $x^* \gets$ $\mathbf{X}$[\texttt{argmax}($\mathbf{F}$)]
+                \Comment*[r]{if better fitness value found, update best solution}
+        }
+
+        % evolutionary operators
+        \texttt{parents} $\gets$ best $\mu$ of $\mathbf{X}$ based on $\mathbf{F}$ \Comment*[r]{select $\mu$ parents}
+        \texttt{offspring} $\gets$ \texttt{recombination}(\texttt{parents}, $\lambda$) \Comment*[r]{produce $\lambda$ offspring}
+        \texttt{offspring} $\gets$ \texttt{mutation}(\texttt{offspring}, $\sigma$, $\tau$) \Comment*[r]{mutate offspring}
+
+        % update population for next iteration
+        \eIf{\texttt{N} $=\lambda$}{
+            $\mathbf{X} \gets$ \texttt{offspring}\;
+        }{
+            $\mathbf{X} \gets$ \texttt{parents} + \texttt{offspring}\;
+        }
+    }
+    \BlankLine
+    \Return{$x^*, f^*$}
+
+\end{algorithm}
+
+
+\begin{algorithm}[htbp]
+
+    \label{alg:ESenc}
+    \caption{Evolution Strategy Encoding}
+    \SetAlgoLined
+    \DontPrintSemicolon
+
+    \Input{$x$, (\texttt{ops\_idx}, \texttt{chunk\_size})$^*$}
+    \Output{$x_\texttt{e}$}
+
+    \BlankLine
+
+    % loop over matrix part
+    $x_{\texttt{e}, \texttt{mat}} \gets$ []\;
+    \For{$i$ in $[0, \; \dots, \; \texttt{ops\_idx}-1]$}{
+        \Comment*[l]{e.g., 19 $\rightarrow$ 0010011 (with chunk\_size 7, so each gene ($x_i$) represents 7 bits)}
+        \texttt{bin\_repr} $\gets$ \texttt{to\_binary}(\texttt{round}($x_i$))\;
+        append \texttt{bin\_repr} to $x_\texttt{e}$\;
+    }
+
+    \Comment*[l]{e.g., 73 $\rightarrow$ 02201 (chunk\_size is 5 always 5 for operations gene)}
+    \texttt{ter\_repr} $\gets$ \texttt{to\_ternary}(\texttt{round}($x_{\texttt{ops\_idx}}$))\;
+    append \texttt{ter\_repr} to $x_\texttt{e}$\;
+
+    \BlankLine
+
+    \Return{$x$, $\sigma_x$}
+
+\end{algorithm}
+
+
+
+\begin{algorithm}[htbp]
+
+    \label{alg:ESmut}
+    \caption{Evolution Strategy Mutation}
+    \SetAlgoLined
+    \DontPrintSemicolon
+
+    \Input{$x$, $\sigma_x$, $\tau$, (\texttt{lb\_mat}, \texttt{ub\_mat}, \texttt{lb\_ops}, \texttt{ub\_ops})$^*$}
+    \Output{$x$, $\sigma_x$}
+
+    \BlankLine
+
+    % mutate x
+    $x_\texttt{mat} \gets$ $x + \sigma_{x, \texttt{mat}} * N(0, 1)$ \Comment*[r]{mutate $x$}
+    $x_\texttt{ops} \gets$ $x + \sigma_{x, \texttt{ops}} * N(0, 1)$\;
+
+    \BlankLine
+    
+    % clip x
+    $x_\texttt{mat} \gets$ clip($x_\texttt{mat}$, $\texttt{lb\_mat}$, $\texttt{ub\_mat}$) \Comment*[r]{clip $x$}
+    $x_\texttt{ops} \gets$ clip($x_\texttt{ops}$, $\texttt{lb\_ops}$, $\texttt{ub\_ops}$)\;
+    
+    \BlankLine
+
+    % update sigma
+    $\sigma_{x, \texttt{mat}} \gets$ $\sigma_{x, \texttt{mat}} * \exp{({\tau * N(0, 1)})}$ \Comment*[r]{mutate $\sigma_x$}
+    $\sigma_{x, \texttt{ops}} \gets$ $\sigma_{x, \texttt{ops}} * \exp{({\tau * N(0, 1)})}$\;
+
+    \BlankLine
+
+    \Return{$x$, $\sigma_x$}
+
+\end{algorithm}
+ 
+
+\section{Experimental Results}\label{sec:experi}
+
+
+In order to find the optimal parameter settings, tests with different configurations have been executed. 
+In the plots below we show some of the results regarding the \textit{comma} and \textit{plus}-selection in GA and ES.
+The effect of different recombination methods (ES) and population sizes (GA) are also shown. 
+Furthermore, other parameter comparison plots have been added in the appendix \ref{subsecA:ES}, \ref{subsecA:GA}.
+
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[scale=0.5]{figs/ES/elitism_ES1.png}
+    \captionsetup{width=.9\textwidth}
+    \caption{This figure shows the performance difference between the comma and plus selection method using ES.}
+    \label{fig:ES_commaplus}
+\end{figure}
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[scale=0.5]{figs/ES/recombination_ES1.png}
+    \caption{
+    This figure shows the performance difference between the different recombination methods (discrete (global) / intermediate (global)) using ES.
+    The x-axis displays the occurrences of each accuracy value (y-axis). }
+    \label{fig:ES_recombination}
+\end{figure}
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[scale = 0.4]{figs/scores_hist_only108.png}
+    \caption{
+    This figure shows the results of an exhaustive search approach to the problem.
+    Testing almost 700 million different candidate solutions in order to see what the highest attainable score is.
+    The x-axis displays the bins of scores that were attained, and the y-axis the amount of times each score was attained.
+    }
+    \label{fig:Brute-force}
+\end{figure}
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[scale = 0.5]{figs/GA/elitism_GA1.png}
+    \caption{
+    This figure displays the performance difference between elitism and no elitism in the population using GA.
+    The x-axis represents the occurrences of each accuracy value (y-axis). }
+    \label{fig:GA_elitism}
+\end{figure}
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[scale = 0.5]{figs/GA/recombination_GA1.png}
+    \caption{
+    This figure shows the performance difference between the different recombination methods;
+    kp(1), kp(2), kp(3) and uniform recombination. 
+    The x-axis displays the occurrences of each accuracy value (y-axis). }
+    \label{fig:GA_recombination}
+\end{figure}
+
+
+
+
+
+
+\section{Discussion and Conclusion}\label{sec:dis&res}
+
+What to report? 
+\begin{itemize}
+    \item AUC values (Area under curve) 
+    \item Empirical analysis of algorithms performance using ERT (expected running times) and ECDF ( empirical cumulative distribution function of the running time) curves. 
+\end{itemize}
+
+Before discussing the EA and GA's performance, the brute-force solution \ref{fig:Brute-force} provides some interesting insights. Some architectures definitely score below 0.8 and even below 0.4. Most solutions however hover between 0.8 and a maximum score of ~0.95. The results show the average over 20 repetitions, where in general the scores mainly reside upwards of the 0.91 fitness score. 
+
+After testing the several parameters and plotting their performance using the ES algorithm, we can conclude the following things;
+$\mu + \lambda$ selection is the better performing population selection method in ES (and GA) when compared to $\mu , \lambda$ \ref{fig:ES_commaplus}.
+This seems logical since the fit parents from the previous solution are also kept in the next generation.
+Allowing new solutions to enter, but not losing the high quality ones so far.
+Discrete recombination performed better than intermediate, no distinct difference between global and non-global versions \ref{fig:ES_recombination}. 
+Intermediate recombination averages between parents, gradually averaging all the individuals, creating a slow descent into one solution.  
+Keeping track of an individual's $\sigma$ as opposed to a global $\sigma$ provides similar results \ref{fig:A_ES_indivsigma}.
+Although not a big difference, a higher population seems to accomplish better scores \ref{fig:A_ES_popsize}. 
+Also very alike are the results of different $\sigma$ values, where higher values (0.5 \& 0.1) seem to work better, and lower ones behave second-rate \ref{fig:A_ES_sigmas}. 
+High values probably introduce more variation in the solutions, quickly finding the fitter ones.
+When considering $\tau$ rates, lower ones (0.1, 0.2) outperform the higher rates (0.5, 0.99) \ref{fig:A_ES_tau}.
+Too much variation (high $\tau$) causes some less fit solutions to be selected, which is seen in the increased frequency of lower accuracy rates.
+Thus if we were to recommend a ideal combination, it would be; \textit{plus}-selection, discrete recombination, high population size, 0.5 $\sigma$, and 0.2 $\tau$. 
+
+ADD: GA results. 
+
+The same analysis as ES is also applied to the GA algorithm, from which we can conclude the following things;
+
+\bibliographystyle{unsrt}  
+\bibliography{references}  
+
+
+\newpage
+
+\appendix
+\section{Appendix}
+\label{sec:app}
+
+\subsection{Evolution Strategy - parameter plots}
+\label{subsecA:ES}
+
+\begin{figure*}[htbp]
+    \centering
+    \includegraphics[width=\textwidth]{figs/ES/individual_sigmas_ES1.png}
+    \caption{
+    This figure shows the difference of using individual sigmas, versus one global sigma for every individual. 
+    The x-axis displays the occurrences of each accuracy value (y-axis).
+    }
+    \label{fig:A_ES_indivsigma}
+\end{figure*}
+
+
+
+\begin{figure*}[htbp]
+    \centering
+    \includegraphics[width=\textwidth]{figs/ES/pop_size_ES1.png}
+    \caption{
+    This figure shows the effect population size (40 versus 100) has on the accuracy performance. 
+    The x-axis displays the occurrences of each accuracy value (y-axis) 
+    }
+    \label{fig:A_ES_popsize}
+\end{figure*}
+
+
+\begin{figure*}[htbp]
+    \centering
+    \includegraphics[width=\textwidth]{figs/ES/sigma_ES1.png}
+    \caption{
+    This figure shows the results of different sigma ($\sigma$) starting values (0.01, 0.1, 0.5). 
+    The x-axis displays the occurrences of each accuracy value (y-axis)
+    }
+    \label{fig:A_ES_sigmas}
+\end{figure*}
+
+
+\begin{figure*}[htbp]
+    \centering
+    \includegraphics[width=\textwidth]{figs/ES/tau_ES1.png}
+    \caption{
+    This figure displays the effect of steps-size differentiation value tau ($\tau$) has. 
+    Four different step-sizes are tested; 0.1, 0.2, 0.5 and 0.99. 
+    The x-axis displays the occurrences of each accuracy value (y-axis)
+    }
+    \label{fig:A_ES_tau}
+\end{figure*}
+
+\newpage
+
+\subsection{Genetic Algorithm - parameter plots}
+\label{subsecA:GA}
+
+
+
+\begin{figure*}[htbp]
+    \centering
+    \includegraphics[width=\textwidth]{figs/GA/pop_size_GA1.png}
+    \caption{
+    This figure shows the effect population size (40 versus 100) has on the accuracy performance. 
+    The x-axis displays the occurrences of each accuracy value (y-axis) 
+    }
+    \label{fig:A_GA_popsize}
+\end{figure*}
+
+
+\begin{figure*}[htbp]
+    \centering
+    \includegraphics[width=\textwidth]{figs/GA/bit_flips_GA1.png}
+    \caption{
+    TODO: Bitflips caption
+    The x-axis displays the occurrences of each accuracy value (y-axis)
+    }
+    \label{fig:A_GA_bitflip}
+\end{figure*}
+
+
+\begin{figure*}[htbp]
+    \centering
+    \includegraphics[width=\textwidth]{figs/GA/mutation_GA1.png}
+    \caption{
+    TODO: caption 
+    The x-axis displays the occurrences of each accuracy value (y-axis)
+    }
+    \label{fig:A_GA_mutation}
+\end{figure*}
+
+
+\begin{figure}[H]
+    \hspace*{-1.5 cm} 
+    \centering
+    \includegraphics[scale = 0.5]{figs/GA/mutation_rate_GA1.png}
+    \caption{
+    TODO: caption
+    The x-axis displays the occurrences of each accuracy value (y-axis). }
+    \label{fig:GA_mutation_rate}
+\end{figure}
+
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[scale = 0.5]{figs/GA/selection_GA1.png}
+    \caption{
+    TODO: caption
+    The x-axis displays the occurrences of each accuracy value (y-axis). }
+    \label{fig:GA_selection}
+\end{figure}
+
+
+
+
+\newpage
+\subsection{Workflow python scripts}
+
+\begin{figure}[htbp]
+    \centering
+    \includegraphics[width=\textwidth]{figs/workflow_EA.drawio (1).png}
+    \caption{ 
+    This workflow shows the general interactions of the different functions. 
+    Hopefully helping to create a better sense of connectivity between the different seen operations. 
+    The different coloring represent the connection to the file they belong in; 
+    main.py (blue), evolution\_strategies.py (green), genetic\_algorithm.py (red) and purple being function needed to call the script from other sources.
+    }
+    \label{fig:A_workflow}
+\end{figure}
+
+\end{document}
