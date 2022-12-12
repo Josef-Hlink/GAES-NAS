@@ -920,10 +920,10 @@ The mutation operator is responsible for introducing diversity into the populati
         \texttt{N}, $\mu$, $\lambda$ & \texttt{selection} & \texttt{recombination} & \texttt{mutation}
             & $f^*_{\mathrm{avg}} $ & $AUC$ \\ % this is still the header of the table
         \midrule
-        100, 80, 20  &  tournament  &  uniform   &  uniform (0.04)  &  \todo{tba}  &  \todo{tba}  \\
-        100, 80, 20  &  rank        &  uniform   &  uniform (0.01)  &  \todo{tba}  &  \todo{tba}  \\
-        100, 90, 10  &  tournament  &  uniform   &  uniform (0.04)  &  \todo{tba}  &  \todo{tba}  \\
-        100, 90, 10  &  rank        &  uniform   &  uniform (0.01)  &  \todo{tba}  &  \todo{tba}  \\
+        100, 80, 20  &  tournament  &  uniform   &  uniform (0.04)  &  \textbf{0.9478}  &  \todo{tba}  \\
+        100, 80, 20  &  rank        &  uniform   &  uniform (0.01)  &  0.9458           &  \todo{tba}  \\
+        100, 90, 10  &  tournament  &  uniform   &  uniform (0.04)  &  0.9462           &  \todo{tba}  \\
+        100, 90, 10  &  rank        &  uniform   &  uniform (0.01)  &  0.9456           &  \todo{tba}  \\
         \bottomrule
     \end{tabular}
     \vspace{0.1cm}
@@ -938,10 +938,10 @@ The mutation operator is responsible for introducing diversity into the populati
         \texttt{N}, $\mu$, $\lambda$ & $\sigma$ & $\tau$ & ind. $\sigma$s & \texttt{chunk\_size} & \texttt{recombination}
             & $f^*_{\mathrm{avg}}$ & $AUC$ \\ % this is still the header of the table
         \midrule
-        100, 80, 20  &  0.5  &  0.5  &  \textit{yes}  &  3  & discrete           &  \todo{tba}  &  \todo{tba}  \\
-        100, 80, 20  &  0.1  &  0.5  &  \textit{yes}  &  3  & discrete (global)  &  \todo{tba}  &  \todo{tba}  \\
-        100, 90, 10  &  0.5  &  0.5  &  \textit{yes}  &  3  & discrete           &  \todo{tba}  &  \todo{tba}  \\
-        100, 90, 10  &  0.1  &  0.5  &  \textit{yes}  &  3  & discrete (global)  &  \todo{tba}  &  \todo{tba}  \\
+        100, 80, 20  &  0.5  &  0.5  &  \textit{yes}  &  3  & discrete           &  0.9495           &  \todo{tba}  \\
+        100, 80, 20  &  0.1  &  0.5  &  \textit{yes}  &  3  & discrete (global)  &  \textbf{0.9501}  &  \todo{tba}  \\
+        100, 90, 10  &  0.5  &  0.5  &  \textit{yes}  &  3  & discrete           &  0.9495           &  \todo{tba}  \\
+        100, 90, 10  &  0.1  &  0.5  &  \textit{yes}  &  3  & discrete (global)  &  0.9488           &  \todo{tba}  \\
         \bottomrule
     \end{tabular}
     \vspace{0.1cm}
@@ -951,6 +951,59 @@ The mutation operator is responsible for introducing diversity into the populati
 
 
 \todo{Add the $f^*_{\mathrm{avg}}$ and ioh metrics (AUC) to the tables and add the plots from ioh. Also try to make sense of them.}
+
+
+\todo{Introduce the learning curves of GA below. Note that we have two different plots here, one with best per generation and one with best so far. Also explain what can be seen (raw results of repetitions in thin lines, average over repetitions in thick lines, and standard deviation with the shaded area).}
+
+\begin{figure*}[htbp]
+    \centering
+    \includegraphics[width=.75\textwidth]{figs/GA/GA_f1.png}
+    \captionsetup{width=.75\textwidth}
+    \caption{dummy}
+    \label{fig:GA_f1}
+\end{figure*}
+
+\begin{figure*}[htbp]
+    \centering
+    \includegraphics[width=.75\textwidth]{figs/GA/GA_f2.png}
+    \captionsetup{width=.75\textwidth}
+    \caption{dummy}
+    \label{fig:GA_f2}
+\end{figure*}
+
+\newpage
+
+\todo{Introduce the learning curves of ES below. Note that the standard deviation reaches higher than the theoretical limit, and that this is fine, because they do not reflect actual observations.}
+
+\todo{Explain why we only see one plot here instead of two.}
+
+\begin{figure*}[htbp]
+    \centering
+    \includegraphics[width=.75\textwidth]{figs/ES/ES_f.png}
+    \captionsetup{width=.75\textwidth}
+    \caption{dummy}
+    \label{fig:ES_f}
+\end{figure*}
+
+\newpage
+
+\todo{Introduce comparison.}
+
+\begin{figure*}[htbp]
+    \centering
+    \includegraphics[width=.75\textwidth]{figs/GA_vs_ES.png}
+    \captionsetup{width=.75\textwidth}
+    \caption{dummy}
+    \label{fig:GA_vs_ES}
+\end{figure*}
+
+\todo{State that it is interesting to see that ES performs significantly better than GA.}
+
+\todo{Why is this interesting? In the exploratory phase we saw that ES showed far worse results.}
+
+\todo{Conclusion? While GA may be more robust and intuititive, with the right configurations, ES can outperform it.}
+
+\newpage
 
 \section{Discussion and Conclusion}
 \label{sec:disres}
