@@ -60,11 +60,12 @@
 % ---------------------------------------------------------------- %
 
 \begin{abstract}
-Neural networks, while powerful tools, can be challenging to design and train.
+Neural networks, while powerful tools, can be challenging to design and train. 
 Neural Architecture Search (NAS) is a method to automatically find the optimal neural network architecture for a given task, but the search space for NAS is large.
 In this paper, we present a Genetic Algorithm (GA) and an Evolution Strategy (ES) to efficiently approach the NAS problem.
 Multiple experiments have been conducted to find the optimal parameters for both algorithms.
-The results show that GA is more effective for this particular problem, as it is more fit to handle discrete problems, such as NAS in the way it is formulated in this paper.
+The results show that GA is more effective for this particular problem.
+When collated to ES, it is more fit to handle discrete problems, such as NAS in the way it is formulated in this paper.
 \end{abstract}
 
 
@@ -76,17 +77,20 @@ The results show that GA is more effective for this particular problem, as it is
 \label{sec:intro}
 
 For the practical assignment of the \textit{Evolutionary Algorithms} course (2022), we have been tasked with the implementation of a Genetic Algorithm (GA) and an Evolution Strategy (ES) to tackle a \textit{Neural Architecture Search} (NAS) problem.
-While neural networks provide an extremely powerful way to solve a plethora of high-level tasks such as image classification, object detection and speech recognition, they are also complex to design, and can require tremendous time and resources to train.
+While neural networks provide an extremely powerful way to solve a plethora of high-level tasks such as image classification, object detection and speech recognition, they are also complex to design.
+Intricate architectures can require tremendous time and resources to train.
 NAS is a method to automatically find the optimal neural network architecture for a given task.
-\textit{NAS-Bench-101} \cite{nasbench101} is a project that provides a dataset with the performance of over 400 thousand convolutional neural network architectures on the CIFAR-10 dataset \cite{cifar10}; a widely used benchmark for image classification.
+\textit{NAS-Bench-101} \cite{nasbench101} is a project that provides a dataset with the performance of over 400 thousand convolutional neural network architectures. 
+The bench-marker is trained on the CIFAR-10 dataset \cite{cifar10}; a widely used benchmark for image classification.
 
 The goal of this assignment is to implement a GA and an ES that can efficiently search the space of these neural network architectures to find a good solution.
 Genetic Algorithms are generally applied to discrete problems, while Evolution Strategies are more suited for continuous (real-valued) problems.
 The NAS problem is inherently discrete, as it is the task of finding the optimal architecture for a neural network, which is described as a set of discrete variables.
-This means that applying a Evolution Strategy approach will require an additional encoding step.
+This means that applying a Evolution Strategy approach will require an encoding step, to handle the aforementioned continuous values.
 
 In order to evaluate the performance of our implementations of the evolutionary algorithms, we use the \textit{IOHexperimenter} and \textit{IOHanalyzer} components of the IOH platform, which was built by researchers at Leiden University \cite{IOH}.
-To support readability of the source code that has been developed for this project, a workflow schema can be found in the appendix (see \ref{app:workflow}).
+To support readability of the source code that has been developed for this project, a workflow schema is provided.
+This figure can be found in the appendix (see \ref{app:workflow}).
 
 
 % ---------------------------------------------------------------- %
@@ -105,7 +109,7 @@ This architecture is initialized with a convolutional stem layer, consisting of 
 This data is fed into the first of three stacks.
 Each stack holds 3 cells, followed by a down-sample layer.
 The down sampling layer uses max-pooling to halve the images height and width, concurrently doubling the channel count.
-After passing through 3 stacks and 2 down-sample layers, a final global average pooling layer is applied, as well as a dense (softmax) layer \cite{NAS}.
+After passing through 3 stacks and 2 down-sample layers, a final global average pooling layer is applied, as well as a dense (softmax) layer \cite{nas}.
 
 Each cell has the same structure, which can be constructed from a space of different directed a-cyclic graphs.
 In order to limit the size of the space, allowing exhaustive enumeration, some constrains are applied.
@@ -116,9 +120,9 @@ Limiting the amount of nodes also caps the maximum number of possible edges at 9
 For this specific assignment the encoding of the NAS problem is replaced by a set of discrete variables $x_i, i \in [1, 26]$.
 Where the values $x_i, i \in [1, 21]$ are either 0 or 1, representing the upper-triangular binary matrix of NAS problem.
 This triangle of values represent the connected nodes of the NAS bench cell architecture.
-The latter values $x_i \in [22,26]$ are either 0,1 or 2, representing the three different operations (3x3 conv, 1x1 conv and 3x3 MP respectively) possible on the 5 nodes of the aforementioned \textit{cell}.
-In order to calculate the fitness value of a population ($x = \{x_1, \dots, x_26\})$, the accuracy rate from the NAS bench-marking is used, which ranges from 0 to 1.
-This accuracy rate of 1 corresponds to 100\% accuracy of the neural network.
+The latter values $x_i \in [22, 26]$ are either 0,1 or 2, representing the three different operations (3x3 conv, 1x1 conv and 3x3 MP respectively) possible on the 5 nodes of the aforementioned cell.
+In order to calculate the fitness value of a candidate solution $x$ ($\{x_1, \dots, x_26\}$), the accuracy rate from the NAS bench-marking is used, which ranges from 0 to 1.
+The accuracy rates are defined as the proportion of correctly classified images in the test set after the network has trained for 108 epochs.
 
 A candidate solution $x = \{x_1, \dots , x_{26}\}$ maps to an input of NAS-bench as; 
 
@@ -243,10 +247,10 @@ A more formal description of this process is given in Algorithm \ref{alg:GA}.
 
  % ---------------------------- PARAMS (overview) ---------------- %
 
-In our experiments, the parameters $f$ and \texttt{budget} for this algorithm are fixed, while the remaining parameters are varied.
+In our experiments, the parameters $f$ (objective function) and \texttt{budget} for this algorithm are fixed, while the remaining parameters are varied.
 In order to find the best configuration of variables and operators for our genetic algorithm, we performed a grid search over the following parameters:
 
-\begin{minipage}{0.45\textwidth}   
+\begin{minipage}{0.4\textwidth}   
     \begin{itemize}
         \item \texttt{N}, $\mu$, $\lambda$: population composition
         \item \texttt{selection}: selection method
@@ -280,14 +284,13 @@ In order to find the best configuration of variables and operators for our genet
 \label{subsec:ga_pop}
 
 The population composition is defined by the parameters \texttt{N}, $\mu$, and $\lambda$.
-The population size (\texttt{N}) is the number of individuals in the population.
-In our testing we have tried values of $100$ and $40$.
+The population size (\texttt{N}) is the number of individuals in the population; in the search for optimal parameters, values of $100$ and $40$ are tested.
 The number of parents ($\mu$) is the number of individuals that are selected to produce offspring.
-For this parameter we have examined values of $20$ and $40$ with $\texttt{N}=100$, and $10$ and $20$ with $\texttt{N}=40$.
+For this parameter, examinations of $20$ and $40$ with $\texttt{N}=100$, and $10$ and $20$ with $\texttt{N}=40$, have been realized.
 The number of offspring ($\lambda$) is the number of individuals that are produced by the recombination operator.
-We have explored values of $100$, $80$ and $60$ with $\texttt{N}=100$, and $40$, $30$ and $20$ with $\texttt{N}=40$.
+For each setting of $\mu$, two values can be used for $\lambda$, e.g. when $\texttt{N}=100$ and $\mu=20$, both $80$ and $100$ are valid choices.
 
-It can be appreciated that some configurations will result in what is commonly referred to as $\mu + \lambda$-evolutionary algorithms; where the population size is equal to the sum of number of parents and offspring.
+It can be appreciated that some configurations will result in what is commonly referred to as $\mu + \lambda$ (or \textit{elitist}) algorithms; where the population size is equal to the sum of number of parents and offspring.
 Other configurations will result in $\mu, \lambda$-evolutionary algorithms, where the number of offspring equals the population size, meaning that no parents will be carried over to the next generation.
 
 
@@ -295,40 +298,46 @@ Other configurations will result in $\mu, \lambda$-evolutionary algorithms, wher
 \label{subsec:ga_sel}
 
 In genetic algorithms, multiple distinct selection methods exist, as simply selecting the best individuals from the population often leads to premature convergence to local optima.
-While there are many different selection methods, we have chosen to focus on three of the most common ones: roulette wheel selection, tournament selection and rank selection, as well as stochastic universal sampling (SUS).
+While there are many different selection methods, we have chosen to focus on three of the most common ones: roulette wheel selection, tournament selection and rank selection.
+Extra study has been done on implementing a less prevalent selection method; stochastic universal sampling (SUS).
 
 \subsubsection*{Roulette Wheel Selection}
 \label{subsubsec:ga_sel_rws}
-Roulette wheel selection \cite{roulettewheel}, also known as fitness proportionate selection (FPS), is a method where the probability of an individual being selected is proportional to its fitness in the most straightforward manner.
+Roulette wheel selection \cite{roulettewheel}, also known as fitness proportionate selection (FPS), is a method where the probability of an individual being selected is directly proportional to its fitness.
 The method can be imagined as a roulette wheel, where the fitness of each individual is represented by a slice of the wheel, with the size of the slice proportional to the fitness of the individual.
 The wheel is then spun, and the individual that the wheel lands on is selected.
-In our implementation, an individual is not ``removed'' from the roulette wheel after having been selected, which leads to the possibility of an individual being selected multiple times.
+In this paper's implementation, an individual is not ``removed'' from the roulette wheel after having been selected, which leads to the possibility of an individual being selected multiple times.
 
 \subsubsection*{Tournament Selection}
 \label{subsubsec:ga_sel_ts}
+\vspace{-0.2cm}
 Tournament selection \cite{tournament} is a method where $k$ individuals are selected at random from the population, and the individual with the highest fitness is selected to be part of the parents.
-The parameter $k$ is referred to as the tournament size, and is a hyperparameter that can be tuned.
-In order to account for the \textit{curse of dimensionality} when it comes to our grid-search approach, we have fixed the tournament size to $k=2$.
+The parameter $k$ is referred to as the tournament size, and is a tune-able hyperparameter.
+In order to account for the \textit{curse of dimensionality} when it comes to the grid-search over parameter configurations,tournament size is fixed to $k=2$.
 
 \subsubsection*{Rank Selection}
 \label{subsubsec:ga_sel_rs}
+\vspace{-0.2cm}
 Rank selection \cite{rank} is quite similar to roulette wheel selection, but instead of using the fitness of the individuals as the size of the slice, the rank of the individual is used.
-After sorting the population based on their fitness values, the individuals are assigned a rank, with the individual with the highest fitness being assigned rank 1.
+After sorting the population based on their fitness values, the individuals are assigned a rank, where the individual with the highest fitness is assigned rank 1.
 The probability distribution for a given population size \texttt{N} can be described as:
 
 $$ P(\texttt{N}) = \begin{bmatrix} \texttt{N} \\ \texttt{N}-1 \\ \vdots \\ 1 \end{bmatrix} * \frac{2}{\texttt{N}(\texttt{N}+1)}$$
 
 For example, a population size $\texttt{N}=3$ always results in a probability distribution of
 $P(\texttt{N}) = \begin{bmatrix} \sfrac{1}{2}, \sfrac{1}{3}, \sfrac{1}{6} \end{bmatrix}$.
-The justification for using rank selection over roulette wheel selection is that, when a point has been reached where fitness values of all individual solutions are similar enough, roulette wheel selection will be reduced to random selection.
+The justification for using rank selection over roulette wheel selection is that, when a point has been reached where fitness values of all individual solutions are sufficiently similar, roulette wheel selection will be reduced to random selection.
 This is undesirable, as the evolutionary pressure to attain high fitness is then lost.
 
 \subsubsection*{Stochastic Universal Sampling}
 \label{subsubsec:ga_sel_sus}
-The final selection method we have implemented, stochastic universal sampling \cite{sus}, is another derivative of fitness proportional selection.
-Where FPS picks potential solutions by repeated random sampling, SUS uses a single random value to sample individuals by choosing them at evenly spaced intervals.
-This gives opportunity to weaker individuals of the population, and prevents oversaturation of the fittest members.
-\todo{Little more in depth please, this is quite vague.}
+\vspace{-0.2cm}
+The final selection method we have implemented, stochastic universal sampling (SUS) \cite{sus}, is another derivative of fitness proportional selection.
+The previously mentioned roulette wheel selection is slightly modified, where the same roulette wheel is used, with the same ratios.
+The difference is the use of numerous selection points that are evenly distributed around the wheel rather than utilizing a single selection point and rotating the roulette wheel again until all required individuals have been selected.
+In this manner, everyone is chosen simultaneously.
+This method gives opportunity to weaker individuals of the population, and prevents oversaturation of the fittest members.
+
 
 \newpage
 
@@ -336,48 +345,54 @@ This gives opportunity to weaker individuals of the population, and prevents ove
 \subsection{Recombination Methods}
 \label{subsec:ga_rec}
 
-After selecting the parents that are allowed -- but not \textit{guaranteed} -- to produce offspring, recombination takes place to introduce variance.
+After selecting the parents that are allowed -- but not \textit{guaranteed} -- to produce offspring, recombination occurs to introduce variance.
 Two different recombination methods have been implemented; $k$-point crossover and uniform recombination.
 Both methods sample two random parents from the selected parents, and produce a child from the two.
 
 \subsubsection*{K-Point Crossover}
 \label{subsubsec:ga_rec_kp}
+\vspace{-0.2cm}
 $k$-point crossover introduces a fixed number ($k$) of ``splits'' along the genomes of parents 1 and 2.
 Part of the solution between each 2 points is swapped between parent 1 and parent 2, creating novel solutions.
-Both resulting children are added to the population, so it is ensured that no ``good'' variables are lost.
+Both resulting children are added to the population, ensuring that no ``good'' variables are lost.
 Increasing $k$ causes more slices to be swapped, and thus more variance in the offspring.
-In our implementation, $k$ is a hyperparameter that can be tuned.
-More specifically, we investigate the values $k=1, 2, 3$.
+A hyperparameter that can be adjusted in the current implementation is $k$. 
+The variables $k=1, 2, 3$ are the focus of our investigation.
 
 \subsubsection*{Uniform Recombination}
 \label{subsubsec:ga_rec_uc}
-The second method, uniform crossover, is similar to $k$-point crossover in that it produces two children from two parents.
-The difference here is that each bit $\begin{bmatrix} x_1, x_2, \dots, x_{26}\end{bmatrix}$ in parent 1 is assigned to either child 1 or 2, with equal probability.
-The bit on the same position in parent 2 is then assigned to the other child.
-This is different from $k$-point crossover with $k$ set to $n-1$ ($n$ is length of bitstring), as it still allows for two or more consecutive bits to be assigned to the same child.
-
+\vspace{-0.2cm}
+The second method, uniform crossover, can be seen as similar to $k$-point crossover, because it also produces two children from two parents.
+The distinction is that each bit in parent 1 $\begin{bmatrix} x_1, x_2, \dots, x_26 \end{bmatrix}$ is randomly assigned to either child 1 or child 2, with equal probability.
+The other child is then given the bit from parent 2 that is located in the same location.
+Uniform crossover is different from $k$-point crossover with $k$ set to $n-1$ ($n$ is the length of the bitstring), because it allows for multiple consecutive bits from the same parent to be assigned to a child, whereas in $n-1$-point crossover, this would never be the case.
 
 \subsection{Mutation Methods}
 \label{subsec:ga_mut}
 
-When selection and recombination have taken place, mutations are introduced, to further increase small variance when compared to the original solution set.
-\todo{beetj meer intro, bijv wat is het nut van mutatie?}
+When selection and recombination have taken place, mutations are introduced, to further increase small variance when compared to the original solution set. 
+Compared to it's biological part, they operate similarly, and have the same function; maintaining genetic diversity. 
+By avoiding the population of solutions from becoming overly similar to one another, mutation operators try to avoid local minima, which could slow or even block convergence towards the global optimum.
+This justification also motivates most GA systems to choose a random (or semi-random) group with a weighting toward the fitter individuals rather than just selecting the population's fittest members to create the subsequent generation.
+
 
 \subsubsection*{Bitflip Mutation}
 \label{subsubsec:ga_mut_bf}
+\vspace{-0.2cm}
 Bitflip mutation is a simple mutation method where a fixed number ($n_{\mathrm{bits}}$) of random bits are flipped, i.e. set to the opposite value.
 When working with binary strings, this is equivalent to flipping a single bit from 0 to 1, or vice versa.
 For the ternary part of our solution strings, the bitflip mutation will be defined as a random choice between the two other possible values, i.e. $ x_i = 2 \rightarrow p(x_{i,\mathrm{mut}} = 0) = p(x_{i, \mathrm{mut}} = 1) = \sfrac{1}{2}$.
 The number of bits to be flipped is a hyperparameter that can be tuned.
-In our experiments, we investigate the values $n_{\mathrm{bits}}=1, 2, 3$.
+In the papers experiments, the values $n_{\mathrm{bits}}=1, 2, 3$ are checked.
 
 \subsubsection*{Uniform Mutation}
 \label{subsubsec:ga_mut_um}
+\vspace{-0.2cm}
 Uniform mutation also flips bits in the solution string, but instead of flipping a fixed number of bits, each bit is flipped with a fixed probability ($p_{\mathrm{mut}}$).
 This means that it is possible for a solution to not be mutated at all, or for all bits to be flipped.
 The bitflip probability is generally set to a low value, often $\sfrac{1}{n}$, where $n$ is the length of the solution string.
 For the NAS problem, we get $n=26$, so $p_{\mathrm{mut}} = \sfrac{1}{26} \approx 0.04$.
-To evaluate whether this approach holds for our specific problem, we also try mutation rates $0.1$ and $0.01$.
+To evaluate whether this approach holds for our specific problem, other mutation rates $0.1$ and $0.01$ are tried.
 
 
 % ---------------------------------------------------------------- %
@@ -386,19 +401,19 @@ To evaluate whether this approach holds for our specific problem, we also try mu
 
 \section{Evolution Strategy}
 \label{sec:ES}
-
 Evolution strategies differ from genetic algorithms in that they can operate in the continuous domain, rather than the discrete domain.
 Whereas genetic algorithms are sometimes still used for continues problems, they require an additional step to discretize the solutions; this is called \textit{encoding} or \textit{decoding}, depending on the direction of the transformation.
-For this problem however, we are presented with an objective function that takes discrete solutions.
-This means that what would ordinarily be done to adapt a GA to a continuous problem, we have to reverse in order to adapt our ES to a discrete problem.
+However, for this problem, we are presented with an objective function that takes discrete solutions.
+This means, that we must reverse what would normally be done to adapt a GA to a continuous problem, in order to adapt our ES to a discrete problem.
 
-Evolution strategies have another advantage over genetic algorithms; they can employ what is called \textit{self-adaptation}; which means that the algorithm can adapt its own parameters during the search process.
+Evolution strategies have another advantage over genetic algorithms; they can employ what is called \textit{self-adaptation}.
+Meaning, the algorithm can adapt its own parameters during the search process.
 This is done by using two variables; the \textit{step-size} $\sigma$ (also referred to as mutation strength) and the \textit{learning rate} $\tau$.
-The step-size is used to determine the strength of the mutation, and the learning rate is in turn used to adapt the step-size; decreasing it as the algorithm progresses towards an optimum.
+The step-size is used to determine the strength of the mutation, and the learning rate in turn controls the step-size; decreasing it as the algorithm progresses towards an optimum.
 
 \newpage
 
-Evolution strategy algorithms come in many different flavors \todo{cite CMAES and some other random one}, but in order to compare them to genetic algorithms, we will use largely the same setup as described in Section~\ref{sec:GA}.
+Evolution strategy algorithms come in many different flavors \cite{CMA-ES}\cite{NES}, but in order to compare them to genetic algorithms, we will use largely the same setup as described in Section~\ref{sec:GA}.
 Again, we start by initializing a population of \texttt{N} random candidate solutions, this time with a continuous representation.
 Along with every solution $x$, one or more step-sizes ($\sigma_x$) are initialized based on the size of the search space and a constant $\sigma_0$.
 From this population, we select a number of ($\mu$) parents based on their fitness values.
@@ -521,7 +536,7 @@ The variables $f$ and \texttt{budget} are again fixed, and the remaining input p
 \label{sec:ES_enc}
 \vspace{-0.2cm}
 To tackle the problem of encoding the real-valued genes into binary or ternary, we use a simple approach.
-We first define the index of the operations gene, \texttt{ops\_idx}, as the index of the first (and only) gene that represents the operations.
+We first define the index of the operations gene \texttt{ops\_idx} as the index of the first (and only) gene that represents the operations part of a solution.
 Then, we loop over the genes of the matrix part, and encode each gene into a binary string.
 The length of the string is determined by the \texttt{chunk\_size} parameter, which is the number of bits that each gene represents.
 This parameter also determines the lower and upper bounds of the genes, since the number of possible values is $2^{\texttt{chunk\_size}}$.
@@ -576,9 +591,9 @@ It is important to note that in traditional ESs, a choice can be made to use ind
 In the case of this problem, this is possible, but not desirable, as the search space of the genes in the operations part is considerably larger than the search space of the genes in the matrix part.
 $3^5$ is $243$, while $2^7$ is $128$, and $2^3$ is just $8$, hence in Algorithm~\ref{alg:ES_mut} it can be observed that all mutation operations are split into two parts.
 
-Because we still want to explore the effect of using individual $\sigma$s versus a single $\sigma$, we define a ``single-$\sigma$'' approach as using the same mutation strength for all genes in the matrix part, and a ``multi-$\sigma$'' approach as using a different mutation strength for each gene in the matrix part.
+Because exploring the effect of using individual $\sigma$s versus a single $\sigma$ is still relevant, we define a ``single-$\sigma$'' approach as using the same mutation strength for all genes in the matrix part, and a ``multi-$\sigma$'' approach as using a different mutation strength for each gene in the matrix part.
 The operations part will always use its own mutation strength.
-To ensure that no invalid genes will arise during encoding, we always clip the genes to the bounds of the search space after mutation.
+To ensure that no invalid genes will arise during encoding, the genes are clipped to the bounds of the search space after mutation.
 Lastly, the mutation strength itself is updated in accordance to the formula as recommended by H.P. Schwefel \cite{tau}.
 
 % --- mutation alg --- %
@@ -637,7 +652,7 @@ It might be concerning that this method results in $\lambda$ identical children,
 \section{Methodology}
 \label{sec:meth}
 
-As mentioned in Section~\ref{sec:prob}, the problem is to find a set of parameters that will result in the best possible performance of the algorithm.
+As mentioned in Section~\ref{sec:prob}, the problem is the task of finding a set of parameters that will result in the best possible performance of the algorithm.
 The total number of possible solutions given the constraints is $2^{21} \cdot 3^5 \approx 5.1 \cdot 10^8$, which is too large to be searched exhaustively.
 However, we can immediately discard a considerable portion of the search space by using the fact that the matrix part of the solution can take a maximum of nine positive bits.
 This prunes our search space to:
@@ -646,12 +661,12 @@ $$\left[ \tochoose{9} + \tochoose{8} + \dots + \tochoose{1}\right]\cdot 3^5 \app
 
 While large, it is feasible to search this space exhaustively, when considering the fact that each function evaluation is essentially a lookup operation, taking roughly $70$ nanoseconds on a modern CPU.
 The time needed for such a brute-force search is \textasciitilde $4$ hours, which is acceptable for the purpose of this paper.
-The number of configurations could be further reduced by using a more sophisticated pruning method to discard solutions that would result in different types of invalid neural architectures, but this is not the focus of this project.
+The number of configurations could be further reduced by using a more sophisticated pruning method to discard solutions that would result in different types of invalid neural architectures, but this is out of scope for this project.
 
 When the search space has been mapped out, we start to focus on the different algorithms that can be used to search it more efficiently.
 Before we can show a detailed comparison of the different algorithms, we need to define the parameters that will be used for the experiments.
-To do this, we have defined a handful of different values for all variable parameters and have tried all possible combinations of these parameters.
-The set of configurations that have been tried for the GA algorithm is a product of the parameters in Table~\ref{tab:GA_params}.
+To do this, we defined a handful of different values for all variable parameters and tried all possible combinations of these parameters.
+The set of configurations that have been explored for the GA algorithm is the product of the parameters in Table~\ref{tab:GA_params}.
 The notation ``\texttt{N}, $\mu$, ($\lambda_{1}$ \& $\lambda_{2}$)'' means that for a population size of \texttt{N}, with a number of parents $\mu$ and the number of children $\lambda$, both $\lambda_{1}$ and $\lambda_{2}$ have been tried for the \textit{plus} and \textit{comma} selection, respectively.
 The total number of resulting configurations is then $8 \cdot 4 \cdot 4 \cdot 6 = 768$.
 Each configuration is run $20$ individual times to reduce the effect of random noise.
@@ -746,7 +761,7 @@ Visualizations for these experiments are done with help of the IOHanalyzer frame
     \label{fig:search}
 \end{wrapfigure}
 
-The exhaustive search of the search space gives us insight into what scores are attainable, and how these scores are distributed.
+The exhaustive search of the search space gives us insight into the attainability of the scores, and their distribution.
 The results of this search are shown in Figure~\ref{fig:search}.
 
 It is immediately apparent that the scores are not uniformly distributed, but instead are skewed towards higher scores.
@@ -764,11 +779,11 @@ With a budget of $5000$, this is extremely unlikely, but there are still some co
 
 In the plots below we show some of the results regarding the effect of using $\mu + \lambda$ versus $\mu, \lambda$ selection (Figure~\ref{fig:elitism}), for both the ES and GA algorithms.
 Similarly, the effect of using different population sizes (Figure~\ref{fig:pop_size}) is shown for both optimizers, alongside a selection algorithm-specific parameters.
-A figure compares two to four different parameter settings by splitting all configurations based on the specific parameter that is being compared.
+A figure compares two to four different parameter settings by splitting all configurations based on the specific parameter that is being examined.
 Each subfigure consists of two parts.
 On the foreground, a scatterplot is shown, where each point represents the $f^*$ of a single configuration of an algorithm, averaged over $20$ repetitions.
 The configuration are ranked from worst to best along the x-axis based on their $f^*$, which is determines their position in the Pareto front.
-The background of a subfigure shows a histogram along the y-axis, to better demonstrate how the function values are distributed for the given parameter setting.
+The background of a sub-figure shows a histogram along the y-axis, to better demonstrate how the function values are distributed for the given parameter setting.
 For a more comprehensive overview of all parameter exploration results, please refer to the Appendix (\ref{app:params_ga} \& \ref{app:params_es}).
 
 \begin{figure*}[htbp]
@@ -789,7 +804,7 @@ For a more comprehensive overview of all parameter exploration results, please r
     \captionsetup{width=.9\textwidth}
     \caption{
         Final function value comparison for all configurations with different elitism settings for the genetic algorithm (left) and evolution strategy (right).
-        The background of each subfigure shows a histogram along the y-axis, to better demonstrate how the function values are distributed for the given parameter setting.
+        The background of each sub-figure shows a histogram along the y-axis, to better demonstrate how the function values are distributed for the given parameter setting.
     }
     \label{fig:elitism}
 \end{figure*}
@@ -820,7 +835,7 @@ It seems that $\mu + \lambda$ selection is better than $\mu, \lambda$ selection 
 This is surprising, as ES algorithms are known to generally perform better with $\mu, \lambda$ selection.
 A possible explanation for this is that the mutation operator as implemented in our evolution strategy is not particularly effective for handling this discrete neural architecture search problem.
 
-The population size is also an important parameter for both algorithms, as there is a direct tradeoff between number of generations (i.e. number of times the selection, recombination and mutation operators are applied) and the population size (i.e. the diversity of solutions in the population).
+The population size is also an important parameter for both algorithms, as there is a direct trade-off between number of generations (i.e. number of times the selection, recombination and mutation operators are applied) and the population size (i.e. the diversity of solutions in the population).
 The differences between GA and ES are still apparent, but between the two parameter settings, the differences are not as pronounced as for the elitism settings.
 For both algorithms, the best results are obtained with a population size of $100$.
 
@@ -832,7 +847,7 @@ The second best results are seen with $3$-point crossover, as it has a dispropor
 The differences between all of these operators are very minor, so we conclude that the recombination operator is not the most important parameter for the GA algorithm.
 The results for our evolution strategy are more interesting, as a clear divide between discrete and intermediate recombination operators can be observed.
 Both the 2-parent and global variants of the discrete recombination operator perform better than their intermediate equivalents.
-This too, is surprising, as the discrete recombination operator is widely considered to be less effective than the intermediate recombination operator.
+This too, is surprising, as the discrete recombination operator is usually considered to be less effective than the intermediate recombination operator in ESs \cite{earecombination}.
 
 \begin{figure*}[htbp]
     \centering
@@ -876,7 +891,7 @@ Because the fitness scores are not normalized, the roulette wheel selection oper
 
 \newpage
     
-\begin{wrapfigure}[11]{r}{.55\textwidth} % wss wil je hiermee gaan spelen (11) als er shit kapot gaat
+\begin{wrapfigure}[21]{r}{.55\textwidth} 
     \vspace{-0.5cm}
     \centering
     \includegraphics[width=.5\textwidth]{figs/ES/tau_ES.png}
@@ -890,7 +905,13 @@ Because the fitness scores are not normalized, the roulette wheel selection oper
 Our last set of experiments for the parameter exploration that are worth mentioning are the ones that we have done for the variables involved with the mutation of the ES algorithm.
 As mentioned in the previous parts of this section, the mutation operator is crucial for the success of the ES algorithm.
 The mutation operator is responsible for introducing diversity into the population, and it is therefore important that it is able to do so in a way that is beneficial for the search.
-\todo{Add interpretation of the updated results. Very long blabla about the results. We also really want to fill up this space here.}
+The mutation effect is controlled by the $\tau$ and $\sigma$ values. 
+Figure \ref{fig:tau_ES} shows that a higher determined $\tau$, results in populations with less fit solutions overall. 
+Mutating the solutions too much impacts the fitness score negatively.
+Despite this, they all manage to find top performing solutions.
+Comparably, tuning the $\sigma$ has consequences to the performance.
+In figure \ref{fig:sigma_ES} it can be seen that a $\sigma$ of 0.1 performs slightly better than 0.01, and just as good as 0.5. 
+Considering that $\tau$ and $\sigma$ both influence the mutation rate, no definitive conclusion can be made from isolated tests. 
 
 \vspace{5cm}
 
@@ -908,9 +929,10 @@ The mutation operator is responsible for introducing diversity into the populati
 
 \subsection*{Final Configurations}
 \label{subsec:final_configs}
-
 \todo{Here we have two dummy tables where we want to outline the final 4 configurations for GA, and for ES.}
 
+Having completed the experiments with the various configurations of both ES and GA, we have defined the final fittest configurations for the pair. 
+The top eyeballed configurations.  
 
 
 \begin{table}[htbp]
@@ -920,10 +942,10 @@ The mutation operator is responsible for introducing diversity into the populati
         \texttt{N}, $\mu$, $\lambda$ & \texttt{selection} & \texttt{recombination} & \texttt{mutation}
             & $f^*_{\mathrm{avg}} $ & $AUC$ \\ % this is still the header of the table
         \midrule
-        100, 80, 20  &  tournament  &  uniform   &  uniform (0.04)  &  \textbf{0.9478}  &  \todo{tba}  \\
-        100, 80, 20  &  rank        &  uniform   &  uniform (0.01)  &  0.9458           &  \todo{tba}  \\
-        100, 90, 10  &  tournament  &  uniform   &  uniform (0.04)  &  0.9462           &  \todo{tba}  \\
-        100, 90, 10  &  rank        &  uniform   &  uniform (0.01)  &  0.9456           &  \todo{tba}  \\
+        100, 80, 20  &  tournament  &  uniform   &  uniform (0.04)  &  \textbf{0.9478}  &   0.9871           \\
+        100, 80, 20  &  rank        &  uniform   &  uniform (0.01)  &  0.9458           &   0.9863           \\
+        100, 90, 10  &  tournament  &  uniform   &  uniform (0.04)  &  0.9462           &   \textbf{0.9928}  \\
+        100, 90, 10  &  rank        &  uniform   &  uniform (0.01)  &  0.9456           &   0.9862           \\
         \bottomrule
     \end{tabular}
     \vspace{0.1cm}
@@ -938,10 +960,10 @@ The mutation operator is responsible for introducing diversity into the populati
         \texttt{N}, $\mu$, $\lambda$ & $\sigma$ & $\tau$ & ind. $\sigma$s & \texttt{chunk\_size} & \texttt{recombination}
             & $f^*_{\mathrm{avg}}$ & $AUC$ \\ % this is still the header of the table
         \midrule
-        100, 80, 20  &  0.5  &  0.5  &  \textit{yes}  &  3  & discrete           &  0.9495           &  \todo{tba}  \\
-        100, 80, 20  &  0.1  &  0.5  &  \textit{yes}  &  3  & discrete (global)  &  \textbf{0.9501}  &  \todo{tba}  \\
-        100, 90, 10  &  0.5  &  0.5  &  \textit{yes}  &  3  & discrete           &  0.9495           &  \todo{tba}  \\
-        100, 90, 10  &  0.1  &  0.5  &  \textit{yes}  &  3  & discrete (global)  &  0.9488           &  \todo{tba}  \\
+        100, 80, 20  &  0.5  &  0.5  &  \textit{yes}  &  3  & discrete           &  0.9495           &  0.9887          \\
+        100, 80, 20  &  0.1  &  0.5  &  \textit{yes}  &  3  & discrete (global)  &  \textbf{0.9501}  &  0.9919          \\
+        100, 90, 10  &  0.5  &  0.5  &  \textit{yes}  &  3  & discrete           &  0.9495           &  0.9919          \\
+        100, 90, 10  &  0.1  &  0.5  &  \textit{yes}  &  3  & discrete (global)  &  0.9488           & \textbf{ 0.9944} \\
         \bottomrule
     \end{tabular}
     \vspace{0.1cm}
@@ -973,6 +995,17 @@ The mutation operator is responsible for introducing diversity into the populati
 
 \newpage
 
+
+% ---------------------------------------------------------------------------------------------------------------------------
+% ---------------------------------------------------------------------------------------------------------------------------
+% ---------------------------------------------------------------------------------------------------------------------------
+%                              VANAF HIER GA IK SHIT IN VSCODE SCHRIJVEN, SO NO AANPASSINGEN PLEASE
+% ---------------------------------------------------------------------------------------------------------------------------
+% ---------------------------------------------------------------------------------------------------------------------------
+
+
+
+
 \todo{Introduce the learning curves of ES below. Note that the standard deviation reaches higher than the theoretical limit, and that this is fine, because they do not reflect actual observations.}
 
 \todo{Explain why we only see one plot here instead of two.}
@@ -984,6 +1017,10 @@ The mutation operator is responsible for introducing diversity into the populati
     \caption{dummy}
     \label{fig:ES_f}
 \end{figure*}
+
+
+
+
 
 \newpage
 
@@ -1001,9 +1038,16 @@ The mutation operator is responsible for introducing diversity into the populati
 
 \todo{Why is this interesting? In the exploratory phase we saw that ES showed far worse results.}
 
-\todo{Conclusion? While GA may be more robust and intuititive, with the right configurations, ES can outperform it.}
+\todo{Conclusion? While GA may be more robust and intuitive, with the right configurations, ES can outperform it.}
 
 \newpage
+
+
+
+% ---------------------------------------------------------------------------------------------------------------------------
+%                                                       tot hier
+% ---------------------------------------------------------------------------------------------------------------------------
+
 
 \section{Discussion and Conclusion}
 \label{sec:disres}
