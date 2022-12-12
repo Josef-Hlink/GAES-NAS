@@ -19,7 +19,8 @@ def main():
         args['recombination'], args['individual_sigmas'], args['budget'], args['repetitions'], args['seed']
     
     # define run id
-    run_id = f'ES_P{pop_size}_M{mu_}_L{lambda_}_S{sigma_}_T{tau_}_C{chunk_size}_R{recombination}_I{individual_sigmas}'
+    run_id = f'ES_P{pop_size}_M{mu_}_L{lambda_}_S{sigma_}_T{tau_}_C{chunk_size}_REC{recombination}'
+    if individual_sigmas: run_id += '_IS'
 
     # create global NASBench object and specify options for usage in nas_ioh function
     global NB, OPTS

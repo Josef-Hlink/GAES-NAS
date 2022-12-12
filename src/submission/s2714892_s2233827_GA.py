@@ -21,7 +21,7 @@ def main():
     # define run id
     mut_id = f'u-{mut_rate:.3f}' if mutation == 'u' else f'n-{mut_nb}'
     rec_id = f'kp-{xp}' if recombination == 'xp' else 'u'
-    run_id = f'GA_P{pop_size}_M{mu_}_L{lambda_}_S{selection}_R{rec_id}_M{mut_id}'
+    run_id = f'GA_P{pop_size}_M{mu_}_L{lambda_}_SEL{selection}_REC{rec_id}_MUT{mut_id}'
 
     # create global NASBench object and specify options for usage in nas_ioh function
     global NB, OPTS
