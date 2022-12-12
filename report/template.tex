@@ -13,18 +13,24 @@
 \usepackage{lipsum}
 \usepackage{siunitx}
 \usepackage[linesnumbered,ruled,vlined]{algorithm2e}
+\usepackage{algorithmic}
 \usepackage{float}
 \usepackage{amsmath}
+\usepackage{xfrac}
 \usepackage{enumerate}
 \usepackage{cite}
 \usepackage{xcolor}
 \usepackage{caption}
 \usepackage{graphicx}
+\usepackage{subcaption}
+\usepackage{wrapfig}
 
 
 % general config
 \graphicspath{ {./images/} }
 \newcommand{\note}[1]{\textbf{#1}}
+\newcommand{\todo}[1]{\textcolor{red}{#1}}
+\newcommand{\tochoose}[1]{\begin{pmatrix} 21 \\ #1 \end{pmatrix}}
 
 % algorithm2e commands
 \SetKwComment{Comment}{/* }{ */}
@@ -80,6 +86,7 @@ The NAS problem is inherently discrete, as it is the task of finding the optimal
 This means that applying a Evolution Strategy approach will require an additional encoding step.
 
 In order to evaluate the performance of our implementations of the evolutionary algorithms, we use the \textit{IOHexperimenter} and \textit{IOHanalyzer} components of the IOH platform, which was built by researchers at Leiden University \cite{IOH}.
+To support readability of the source code that has been developed for this project, a workflow schema can be found in the appendix (see \ref{app:workflow}).
 
 
 % ---------------------------------------------------------------- %
@@ -87,7 +94,7 @@ In order to evaluate the performance of our implementations of the evolutionary 
 % ---------------------------------------------------------------- %
 
 \section{Problem Description}
-\label{sec:problem}
+\label{sec:prob}
 
 As mentioned before, NAS-bench-101 is utilized to test the neural networks performance.
 Since this database only has the exact results of over 400 thousand architectures, constrictions to these networks have to be made.
@@ -135,55 +142,43 @@ And the operations at the 7 different nodes = [input, $x_{22}$, $x_{23}$, $x_{24
 \section{Genetic Algorithm}
 \label{sec:GA}
 
-Now that the general problem is understood properly, a more in depth description and solution can be discussed. Solving the NAS problem, where; $f: \mathbb{Z}^n \rightarrow \mathbb{R}$ is to be maximized. The problem can be defined as (for n = 26):
+Now that the general problem is understood properly, a more in depth description and solution can be discussed.
+Formally, the function $f: \mathbb{Z}^n \rightarrow \mathbb{R}$ is to be maximized.
+The problem can be defined as (for $n=26$):
 
 \begin{itemize}
-    \item $f(z) \to \text{max}, z_i \in \{0, 1\} \: \mathrm{for} \: i \in [1, 21], \: z_i \in \{0, 1, 2\} \: \mathrm{for} \: i \in [22, 26]$
-    \item It is known that $f \in [0,1]$
-    \item And an invalid NAS solution is denoted as: $f(z) = 0$
+    \item A candidate solution is noted as $x$, with
+    \begin{itemize}
+        \item $x_{i, i \in [1, \dots, 21]} \in \{0, 1\}$; and
+        \item $x_{i, i \in [22, \dots, 26]} \in \{0, 1, 2\}$
+    \end{itemize}
+    \item It has a fitness (function) value $f(x) \in [0, 1] \; \forall \; x \in \mathbb{Z}^{26}$
+    \item The optimal function value is defined as $f^* = f(x^*)$, where $f(x^*) \geq f(x_{\mathrm{observed}}) \; \forall \; x_{\mathrm{observed}} \in \mathbb{Z}^{26}$
+    \item An invalid\footnote{
+        An invalid solution is a solution that does not map to a valid neural architecture. 
+        This can be caused by a number of reasons, such as a non-connected graph, or a graph with a cycle.
+        } solution $x_{\mathrm{invalid}}$ maps to $f(x_{\mathrm{invalid}})=0$
 \end{itemize}
 
-This essentially means that by using a GA algorithm, find a architecture which scores as high as possible, through the alteration of a 26 integer bit-string. 
+The key idea of a genetic algorithm is to use a population of candidate solutions to find the optimal solution.
+At its very core, a genetic algorithm is a search algorithm that mimics the process of natural selection; using the best solutions to create new solutions.
+The main steps of a genetic algorithm are as follows:
+Initialize a population of \texttt{N} random candidate solutions.
+From the population, select a number of ($\mu$) parents based on their fitness values.
+These parents are then used to create a number of ($\lambda$) offspring by applying a recombination method on two randomly selected parents.
+The offspring are mutated, and the new population can either be just the offspring ($\lambda$) or the parents and offspring combined ($\mu+\lambda$).
+The process is repeated until a stopping criterion is met, in our case when the budget is exhausted, making the algorithm a \textit{fixed budget} algorithm.
+A more formal description of this process is given in Algorithm \ref{alg:GA}.
 
-In order to find the best GA different combinations of selection, recombination and mutation are combined. 
-Each combination, with different parameter settings might yield a better result, therefor testing is needed. 
-The four different population selection methods that have been implemented are; roulette wheel, tournament, ranking and stochastic universal selection (SUS). 
-Roulette wheel selection ranks the possible solutions on their fitness and based on their fitness a area on a pie chart is dedicated. 
-Increasing the area with higher fitness scores. 
-Parents are selected by "spinning" the pie chart and choosing the solution it lands on, thus higher fitness individuals have a higher chance of being selected as a parent. 
-Tournament selection involves the use of tournaments, selecting $k$ individuals from the population, and selecting the highest scoring (best fitness) solution. 
-Increasing the tournament size increases the chance of stronger individuals to be chosen, since there are more options to pick from. 
-The third selection method, ranking, is similar to the roulette wheel method. With ranking, the population is sorted based on their fitness value, where the lowest fitness is ranked 1.
-If for example, the population number is 10, the probability distribution is $(0.1, 0.2, \dots, 1.0)$.
-Then the cumulative fitness is calculated and transferred to a roulette wheel. 
-This method prevents fit, but non-optimal, solutions dominating the whole population.
-Decreasing the convergence rate and loss of genetic diversity, allowing a better optimization process. 
-The final selection method, SUS, is a derivative of fitness proportionate selection (FPS). 
-FPS picks potential solutions by repeated random sampling, whereas SUS uses a single random value to sample individuals by choosing them at evenly space intervals. 
-This gives opportunity to weaker individuals of the population, and prevents over saturation of the fittest members.  
-
-After selecting the new population, recombination takes place to introduce variance. 
-Two different recombination methods have been implemented; k-point crossover and uniform recombination.
-K-point crossover places $k$ amount of imaginary points in parent 1 and corresponding points in parent 2. 
-Part of the solution between each 2 points is swapped between parent 1 and parent 2, creating novel solutions. 
-Increasing $k$, causes more crossovers to take place. 
-The second method, uniform crossover, is similar to k-point crossover. 
-The difference here is that each bit ($\{x_1, \dots x_{21}\}$) is assigned to either child 1 or 2, the corresponding bit is appointed to the other child. 
-
-When selection and recombination have taken place, mutations are introduced, to further increase small variance when compared to the original solution set.
-In our case, either an uniform or bitflip mutation is applied.
-Uniform mutation choose a certain percentage of bits, for example 5-10\%, at random and set them to random values. 
-This percentages stays at the same rate throughout the training. 
-Non-uniform mutation lowers the mutation rate as the population gets fitter.
-
+% --------------------------- ALGORITHM -------------------------- %
 
 \begin{algorithm}[htbp]
-
-    \label{alg:GA}
+    
     \caption{Genetic Algorithm}
+    \label{alg:GA}
     \SetAlgoLined
     \DontPrintSemicolon
-
+    
     \Input{
         $f$,
         \texttt{N},
@@ -207,8 +202,8 @@ Non-uniform mutation lowers the mutation rate as the population gets fitter.
     % initialize population
     $\mathbf{X} \gets$ [] \Comment*[r]{$\mathbf{X}$ will contain the population of solutions}
     \RepTimes{\texttt{N}}{
-        $x_{i, i \in [0, \dots, 20]} \gets U([0, 1])$ \Comment*[r]{matrix part (binary)}
-        $x_{i, i \in [21, \dots, 25]} \gets U([0, 1, 2])$ \Comment*[r]{operations part (ternary)}
+        $x_{i, i \in [1, \dots, 21]} \gets U(\{0, 1\})$ \Comment*[r]{matrix part (binary)}
+        $x_{i, i \in [22, \dots, 26]} \gets U(\{0, 1, 2\})$ \Comment*[r]{operations part (ternary)}
         append $x$ to $\mathbf{X}$\;
     }
 
@@ -244,43 +239,181 @@ Non-uniform mutation lowers the mutation rate as the population gets fitter.
 
 \end{algorithm}
 
+\newpage
+
+ % ---------------------------- PARAMS (overview) ---------------- %
+
+In our experiments, the parameters $f$ and \texttt{budget} for this algorithm are fixed, while the remaining parameters are varied.
+In order to find the best configuration of variables and operators for our genetic algorithm, we performed a grid search over the following parameters:
+
+\begin{minipage}{0.45\textwidth}   
+    \begin{itemize}
+        \item \texttt{N}, $\mu$, $\lambda$: population composition
+        \item \texttt{selection}: selection method
+        \begin{itemize}
+            \item roulette wheel selection
+            \item tournament selection
+            \item rank selection
+            \item stochastic universal sampling
+        \end{itemize}
+    \end{itemize}
+\end{minipage}
+~
+\begin{minipage}{0.55\textwidth}
+    \begin{itemize}
+        \item \texttt{recombination}: recombination method
+        \begin{itemize}
+            \item $k$-point crossover
+            \item uniform crossover
+        \end{itemize}
+        \item \texttt{mutation}: mutation method
+        \begin{itemize}
+            \item bit-flip mutation (always flipping $n_{\mathrm{bits}}$ bits)
+            \item uniform mutation (bit flips with probability $p$)
+        \end{itemize}
+    \end{itemize}
+\end{minipage}
+
+% --------------------------- PARAMS (descriptions) -------------- %
+
+\subsection{Population Composition}
+\label{subsec:ga_pop}
+
+The population composition is defined by the parameters \texttt{N}, $\mu$, and $\lambda$.
+The population size (\texttt{N}) is the number of individuals in the population.
+In our testing we have tried values of $100$ and $40$.
+The number of parents ($\mu$) is the number of individuals that are selected to produce offspring.
+For this parameter we have examined values of $20$ and $40$ with $\texttt{N}=100$, and $10$ and $20$ with $\texttt{N}=40$.
+The number of offspring ($\lambda$) is the number of individuals that are produced by the recombination operator.
+We have explored values of $100$, $80$ and $60$ with $\texttt{N}=100$, and $40$, $30$ and $20$ with $\texttt{N}=40$.
+
+It can be appreciated that some configurations will result in what is commonly referred to as $\mu + \lambda$-evolutionary algorithms; where the population size is equal to the sum of number of parents and offspring.
+Other configurations will result in $\mu, \lambda$-evolutionary algorithms, where the number of offspring equals the population size, meaning that no parents will be carried over to the next generation.
+
+
+\subsection{Selection Methods}
+\label{subsec:ga_sel}
+
+In genetic algorithms, multiple distinct selection methods exist, as simply selecting the best individuals from the population often leads to premature convergence to local optima.
+While there are many different selection methods, we have chosen to focus on three of the most common ones: roulette wheel selection, tournament selection and rank selection, as well as stochastic universal sampling (SUS).
+
+\subsubsection*{Roulette Wheel Selection}
+\label{subsubsec:ga_sel_rws}
+Roulette wheel selection \cite{roulettewheel}, also known as fitness proportionate selection (FPS), is a method where the probability of an individual being selected is proportional to its fitness in the most straightforward manner.
+The method can be imagined as a roulette wheel, where the fitness of each individual is represented by a slice of the wheel, with the size of the slice proportional to the fitness of the individual.
+The wheel is then spun, and the individual that the wheel lands on is selected.
+In our implementation, an individual is not ``removed'' from the roulette wheel after having been selected, which leads to the possibility of an individual being selected multiple times.
+
+\subsubsection*{Tournament Selection}
+\label{subsubsec:ga_sel_ts}
+Tournament selection \cite{tournament} is a method where $k$ individuals are selected at random from the population, and the individual with the highest fitness is selected to be part of the parents.
+The parameter $k$ is referred to as the tournament size, and is a hyperparameter that can be tuned.
+In order to account for the \textit{curse of dimensionality} when it comes to our grid-search approach, we have fixed the tournament size to $k=2$.
+
+\subsubsection*{Rank Selection}
+\label{subsubsec:ga_sel_rs}
+Rank selection \cite{rank} is quite similar to roulette wheel selection, but instead of using the fitness of the individuals as the size of the slice, the rank of the individual is used.
+After sorting the population based on their fitness values, the individuals are assigned a rank, with the individual with the highest fitness being assigned rank 1.
+The probability distribution for a given population size \texttt{N} can be described as:
+
+$$ P(\texttt{N}) = \begin{bmatrix} \texttt{N} \\ \texttt{N}-1 \\ \vdots \\ 1 \end{bmatrix} * \frac{2}{\texttt{N}(\texttt{N}+1)}$$
+
+For example, a population size $\texttt{N}=3$ always results in a probability distribution of
+$P(\texttt{N}) = \begin{bmatrix} \sfrac{1}{2}, \sfrac{1}{3}, \sfrac{1}{6} \end{bmatrix}$.
+The justification for using rank selection over roulette wheel selection is that, when a point has been reached where fitness values of all individual solutions are similar enough, roulette wheel selection will be reduced to random selection.
+This is undesirable, as the evolutionary pressure to attain high fitness is then lost.
+
+\subsubsection*{Stochastic Universal Sampling}
+\label{subsubsec:ga_sel_sus}
+The final selection method we have implemented, stochastic universal sampling \cite{sus}, is another derivative of fitness proportional selection.
+Where FPS picks potential solutions by repeated random sampling, SUS uses a single random value to sample individuals by choosing them at evenly spaced intervals.
+This gives opportunity to weaker individuals of the population, and prevents oversaturation of the fittest members.
+\todo{Little more in depth please, this is quite vague.}
+
+\newpage
+
+
+\subsection{Recombination Methods}
+\label{subsec:ga_rec}
+
+After selecting the parents that are allowed -- but not \textit{guaranteed} -- to produce offspring, recombination takes place to introduce variance.
+Two different recombination methods have been implemented; $k$-point crossover and uniform recombination.
+Both methods sample two random parents from the selected parents, and produce a child from the two.
+
+\subsubsection*{K-Point Crossover}
+\label{subsubsec:ga_rec_kp}
+$k$-point crossover introduces a fixed number ($k$) of ``splits'' along the genomes of parents 1 and 2.
+Part of the solution between each 2 points is swapped between parent 1 and parent 2, creating novel solutions.
+Both resulting children are added to the population, so it is ensured that no ``good'' variables are lost.
+Increasing $k$ causes more slices to be swapped, and thus more variance in the offspring.
+In our implementation, $k$ is a hyperparameter that can be tuned.
+More specifically, we investigate the values $k=1, 2, 3$.
+
+\subsubsection*{Uniform Recombination}
+\label{subsubsec:ga_rec_uc}
+The second method, uniform crossover, is similar to $k$-point crossover in that it produces two children from two parents.
+The difference here is that each bit $\begin{bmatrix} x_1, x_2, \dots, x_{26}\end{bmatrix}$ in parent 1 is assigned to either child 1 or 2, with equal probability.
+The bit on the same position in parent 2 is then assigned to the other child.
+This is different from $k$-point crossover with $k$ set to $n-1$ ($n$ is length of bitstring), as it still allows for two or more consecutive bits to be assigned to the same child.
+
+
+\subsection{Mutation Methods}
+\label{subsec:ga_mut}
+
+When selection and recombination have taken place, mutations are introduced, to further increase small variance when compared to the original solution set.
+\todo{beetj meer intro, bijv wat is het nut van mutatie?}
+
+\subsubsection*{Bitflip Mutation}
+\label{subsubsec:ga_mut_bf}
+Bitflip mutation is a simple mutation method where a fixed number ($n_{\mathrm{bits}}$) of random bits are flipped, i.e. set to the opposite value.
+When working with binary strings, this is equivalent to flipping a single bit from 0 to 1, or vice versa.
+For the ternary part of our solution strings, the bitflip mutation will be defined as a random choice between the two other possible values, i.e. $ x_i = 2 \rightarrow p(x_{i,\mathrm{mut}} = 0) = p(x_{i, \mathrm{mut}} = 1) = \sfrac{1}{2}$.
+The number of bits to be flipped is a hyperparameter that can be tuned.
+In our experiments, we investigate the values $n_{\mathrm{bits}}=1, 2, 3$.
+
+\subsubsection*{Uniform Mutation}
+\label{subsubsec:ga_mut_um}
+Uniform mutation also flips bits in the solution string, but instead of flipping a fixed number of bits, each bit is flipped with a fixed probability ($p_{\mathrm{mut}}$).
+This means that it is possible for a solution to not be mutated at all, or for all bits to be flipped.
+The bitflip probability is generally set to a low value, often $\sfrac{1}{n}$, where $n$ is the length of the solution string.
+For the NAS problem, we get $n=26$, so $p_{\mathrm{mut}} = \sfrac{1}{26} \approx 0.04$.
+To evaluate whether this approach holds for our specific problem, we also try mutation rates $0.1$ and $0.01$.
+
 
 % ---------------------------------------------------------------- %
 % ------------------------------ ES ------------------------------ %
 % ---------------------------------------------------------------- %
 
-\subsection{Evolution Strategy}
+\section{Evolution Strategy}
 \label{sec:ES}
 
-The second task, similar to the first is to solve the NAS problem $f: \mathbb{Z}^n \rightarrow \mathbb{R}$, has to be maximized. 
-Here the same assumptions can be made as with the GA. 
-The ES algorithm uses, similar to GA, operators to evolve solutions.
-This paper tests one mutation variator, four different recombination techniques and two different selection operators.
+Evolution strategies differ from genetic algorithms in that they can operate in the continuous domain, rather than the discrete domain.
+Whereas genetic algorithms are sometimes still used for continues problems, they require an additional step to discretize the solutions; this is called \textit{encoding} or \textit{decoding}, depending on the direction of the transformation.
+For this problem however, we are presented with an objective function that takes discrete solutions.
+This means that what would ordinarily be done to adapt a GA to a continuous problem, we have to reverse in order to adapt our ES to a discrete problem.
 
-The four different recombination techniques that have been implemented are; discrete (global) and intermediate (global) recombination. Discrete recombination takes two parent solutions, each parameter of the resulting child is chosen randomly from each parent with equal probability. The global variant does not choose from two parents, but chooses each parameter from all the available parents, each having equal chance of being selected. The third recombination method, intermediate, selects 2 parents and averages the parameters between the parents. The resulting average parameters is the recombined child. The global variant averages the parameters over all the parents. Thus, parameter 1 of the child is equal to the average of parameter 1 of all the parents. 
+Evolution strategies have another advantage over genetic algorithms; they can employ what is called \textit{self-adaptation}; which means that the algorithm can adapt its own parameters during the search process.
+This is done by using two variables; the \textit{step-size} $\sigma$ (also referred to as mutation strength) and the \textit{learning rate} $\tau$.
+The step-size is used to determine the strength of the mutation, and the learning rate is in turn used to adapt the step-size; decreasing it as the algorithm progresses towards an optimum.
 
-One-$\sigma$ mutation takes the newly recombined individuals and alters their value individually with a parameter named $\sigma$.
-After mutation, the $\sigma$ values are adjusted with step-size $\tau$, together they indicate the mutation strength of the individual.
+\newpage
 
-After parents have been recombined, and the resulting children have been mutated, a new generation will be selected. There are two different deterministic selection methods; \textit{comma-selection} ($\mu , \lambda$) and \textit{plus-selection} ($\mu + \lambda$). Comma-selection states that the children replace the parents directly each iteration of the algorithm. Whereas plus-selection makes a selection of parents and children to define the new iteration population \cite{ES_3} \cite{ES_1}. 
+Evolution strategy algorithms come in many different flavors \todo{cite CMAES and some other random one}, but in order to compare them to genetic algorithms, we will use largely the same setup as described in Section~\ref{sec:GA}.
+Again, we start by initializing a population of \texttt{N} random candidate solutions, this time with a continuous representation.
+Along with every solution $x$, one or more step-sizes ($\sigma_x$) are initialized based on the size of the search space and a constant $\sigma_0$.
+From this population, we select a number of ($\mu$) parents based on their fitness values.
+In contrast to the genetic algorithm, this selection is entirely deterministic, i.e. only the ``best'' $\mu$ solutions are selected.
+Recombination is then performed on the selected parents, and the resulting children are mutated by adding a random value to each parameter, drawn from a normal distribution with mean 0 and standard deviation $\sigma$.
+The new population can then again be created through either $\mu+\lambda$, or $\mu,\lambda$ selection.
+An overview of the algorithm is given in Algorithm~\ref{alg:ES}, with the encoding and mutation steps being separated into their own respective algorithms \ref{alg:ES_enc} and \ref{alg:ES_mut} for brevity.
+The variables $f$ and \texttt{budget} are again fixed, and the remaining input parameters are varied in our experiments.
 
-The ES algorithm operators cause the use of real values as opposed to integers. 
-But, NAS bench-marker requires integer values in order to understand which architecture is constructed. 
-Therefore an encoding function is implemented, encoding individuals into a 2D array of integers. 
-This is done by chunking the individuals, both the binary and ternary part, and clipping them to the nearest allowed integer. Both parts are then recombined into an encoded individual, which can be utilized by the bench-marker. No decoding is needed since the original real values are used for the next generation. 
-
-\vspace{-3mm}
-
-% \section{Algorithms}
-% Having gone over the important operators of the algorithms, the algorithm itself can be considered.
-% Below we show the pseudo code of both algorithms, some parts have been simplified, to deliver a understandable overview. 
-% To support readability of the provided code with this project, a workflow has been added \ref{fig:A_workflow}. 
-
+% --- base alg --- %
 
 \begin{algorithm}[htbp]
 
-    \label{alg:ES}
     \caption{Evolution Strategy}
+    \label{alg:ES}
     \SetAlgoLined
     \DontPrintSemicolon
 
@@ -289,7 +422,7 @@ This is done by chunking the individuals, both the binary and ternary part, and 
         \texttt{N},
         $\lambda$,
         $\mu$,
-        $\sigma$,
+        $\sigma_0$,
         $\tau$,
         \texttt{budget},
         \texttt{recombination},
@@ -309,16 +442,16 @@ This is done by chunking the individuals, both the binary and ternary part, and 
     \texttt{lb\_mat}, \texttt{lb\_ops} $\gets$ 0, 0 \Comment*[r]{lower bounds}
     \texttt{ub\_mat} $\gets$ $2^\texttt{chunk\_size}-1$ \Comment*[r]{upper bounds are dependent on chunk size}
     \texttt{ub\_ops} $\gets$ $3^5-1$ \Comment*[r]{upper bounds, "chunk size" is always 5}
-    \texttt{ops\_idx} $\gets 21 / \texttt{chunk\_size}$ \Comment*[r]{define index of operations gene}
+    \texttt{ops\_idx} $\gets 21 / \texttt{chunk\_size} + 1$ \Comment*[r]{define index of operations gene}
     $\mathbf{X} \gets$ [] \Comment*[r]{$\mathbf{X}$ will contain the solutions, along with their sigmas}
     \RepTimes{\texttt{N}}{
-        $x_{i, \: i \in [0, \; \dots, \; \texttt{ops\_idx}-1]} \gets U(\{\texttt{lb\_mat}, \texttt{ub\_mat}\})$
+        $x_{i, \: i \in \{1, \; \dots, \; \texttt{ops\_idx}-1\}} \gets U([\texttt{lb\_mat}, \texttt{ub\_mat}])$
             \Comment*[r]{matrix genes ($\mathbb{R}$)}
-        $x_{i, \: i = \texttt{ops\_idx}} \gets U(\{\texttt{lb\_ops}, \texttt{ub\_ops}\})$
+        $x_{i, \: i = \texttt{ops\_idx}} \gets U([\texttt{lb\_ops}, \texttt{ub\_ops}])$
             \Comment*[r]{operations gene ($\mathbb{R}$)}
-        $\sigma_{x, \: \texttt{mat}} \gets \sigma * U(\{\texttt{lb\_mat}, \texttt{ub\_mat}\})$
+        $\sigma_{x, \: \texttt{mat}} \gets \sigma_0 * U([\texttt{lb\_mat}, \texttt{ub\_mat}])$
             \Comment*[r]{initialize $\sigma$ for matrix part ($\mathbb{R}$)}
-        $\sigma_{x, \: \texttt{ops}} \gets \sigma * U(\{\texttt{lb\_ops}, \texttt{ub\_ops}\})$
+        $\sigma_{x, \: \texttt{ops}} \gets \sigma_0 * U([\texttt{lb\_ops}, \texttt{ub\_ops}])$
             \Comment*[r]{initialize $\sigma$ for operations part ($\mathbb{R}$)}
         append $(x, \sigma_x)$ to $\mathbf{X}$\;
     }
@@ -342,9 +475,12 @@ This is done by chunking the individuals, both the binary and ternary part, and 
         }
 
         % evolutionary operators
-        \texttt{parents} $\gets$ best $\mu$ of $\mathbf{X}$ based on $\mathbf{F}$ \Comment*[r]{select $\mu$ parents}
-        \texttt{offspring} $\gets$ \texttt{recombination}(\texttt{parents}, $\lambda$) \Comment*[r]{produce $\lambda$ offspring}
-        \texttt{offspring} $\gets$ \texttt{mutation}(\texttt{offspring}, $\sigma$, $\tau$) \Comment*[r]{mutate offspring}
+        \texttt{parents} $\gets$ best $\mu$ of $\mathbf{X}$ based on $\mathbf{F}$
+            \Comment*[r]{select $\mu$ parents}
+        \texttt{offspring} $\gets$ \texttt{recombination}(\texttt{parents}, $\lambda$)
+            \Comment*[r]{produce $\lambda$ offspring}
+        \texttt{offspring} $\gets$ \texttt{mutation}(\texttt{offspring}, $\sigma_{\texttt{offspring}}$, $\tau$)
+            \Comment*[r]{mutate offspring}
 
         % update population for next iteration
         \eIf{\texttt{N} $=\lambda$}{
@@ -358,11 +494,52 @@ This is done by chunking the individuals, both the binary and ternary part, and 
 
 \end{algorithm}
 
+% ---------------------------- PARAMS (overview) ---------------- %
 
+\begin{minipage}{0.5\textwidth}   
+    \begin{itemize}
+        \item \texttt{N}, $\mu$, $\lambda$: population composition
+        \item $\sigma$: initial mutation strength \\ (proportional to the search space)
+        \item $\tau$: mutation strength decay
+        \item \texttt{chunk\_size}: size of the discrete chunks \\ that each gene represents
+    \end{itemize}
+\end{minipage}
+~
+\begin{minipage}{0.45\textwidth}
+    \begin{itemize}
+        \item \texttt{recombination}: recombination method
+        \begin{itemize}
+            \item discrete recombination
+            \item global discrete recombination
+            \item intermediate recombination
+            \item global intermediate recombination
+        \end{itemize}
+    \end{itemize}
+\end{minipage}
+
+\subsection{Encoding}
+\label{sec:ES_enc}
+\vspace{-0.2cm}
+To tackle the problem of encoding the real-valued genes into binary or ternary, we use a simple approach.
+We first define the index of the operations gene, \texttt{ops\_idx}, as the index of the first (and only) gene that represents the operations.
+Then, we loop over the genes of the matrix part, and encode each gene into a binary string.
+The length of the string is determined by the \texttt{chunk\_size} parameter, which is the number of bits that each gene represents.
+This parameter also determines the lower and upper bounds of the genes, since the number of possible values is $2^{\texttt{chunk\_size}}$.
+For conceptual simplicity, we assume that the lower bound is 0, and the upper bound is $2^{\texttt{chunk\_size}}-1$.
+Each real valued gene can then be rounded to the nearest integer, and converted to a binary string, which will be zero-padded to the length of \texttt{chunk\_size}.
+A procedural overview of the encoding is shown in Algorithm~\ref{alg:ES_enc}.
+No decoding is needed since the original real values are used for the next generation.
+
+While theoretically possible, we decided it would be infeasible within the scope of this project to explore any other chunk sizes than $3$ and $7$, as they are strict divisors of $21$; the number of variables in the matrix part.
+This allowed us to enforce the same bounds on all genes (in the matrix part), and as an extension of this, not have to worry about different mutation strengths.
+For the operations part of the solution string, we map a single real valued gene to a ternary string of length $5$.
+
+% --- encoding alg --- %
+\vspace{-0.3cm}
 \begin{algorithm}[htbp]
 
-    \label{alg:ESenc}
     \caption{Evolution Strategy Encoding}
+    \label{alg:ES_enc}
     \SetAlgoLined
     \DontPrintSemicolon
 
@@ -373,7 +550,7 @@ This is done by chunking the individuals, both the binary and ternary part, and 
 
     % loop over matrix part
     $x_{\texttt{e}, \texttt{mat}} \gets$ []\;
-    \For{$i$ in $[0, \; \dots, \; \texttt{ops\_idx}-1]$}{
+    \For{$i$ in $[1, \; \dots, \; \texttt{ops\_idx}-1]$}{
         \Comment*[l]{e.g., 19 $\rightarrow$ 0010011 (with chunk\_size 7, so each gene ($x_i$) represents 7 bits)}
         \texttt{bin\_repr} $\gets$ \texttt{to\_binary}(\texttt{round}($x_i$))\;
         append \texttt{bin\_repr} to $x_\texttt{e}$\;
@@ -389,12 +566,27 @@ This is done by chunking the individuals, both the binary and ternary part, and 
 
 \end{algorithm}
 
+\vspace{-0.5cm}
+\subsection{Mutation}
+\label{sec:ES_mut}
+\vspace{-0.2cm}
+The mutation operator is the most distinctive part of the ES algorithm, as it is responsible for the exploration of the search space.
+The mutation on the real-valued genes is performed by adding a random value to each gene, which is drawn from a normal distribution with mean 0 and standard deviation 1 and multiplied by the mutation strength (i.e., $\sigma * N(0, 1)$).
+It is important to note that in traditional ESs, a choice can be made to use individual $\sigma$s for each gene, or a single $\sigma$ for all genes.
+In the case of this problem, this is possible, but not desirable, as the search space of the genes in the operations part is considerably larger than the search space of the genes in the matrix part.
+$3^5$ is $243$, while $2^7$ is $128$, and $2^3$ is just $8$, hence in Algorithm~\ref{alg:ES_mut} it can be observed that all mutation operations are split into two parts.
 
+Because we still want to explore the effect of using individual $\sigma$s versus a single $\sigma$, we define a ``single-$\sigma$'' approach as using the same mutation strength for all genes in the matrix part, and a ``multi-$\sigma$'' approach as using a different mutation strength for each gene in the matrix part.
+The operations part will always use its own mutation strength.
+To ensure that no invalid genes will arise during encoding, we always clip the genes to the bounds of the search space after mutation.
+Lastly, the mutation strength itself is updated in accordance to the formula as recommended by H.P. Schwefel \cite{tau}.
 
+% --- mutation alg --- %
+\vspace{-0.3cm}
 \begin{algorithm}[htbp]
 
-    \label{alg:ESmut}
     \caption{Evolution Strategy Mutation}
+    \label{alg:ES_mut}
     \SetAlgoLined
     \DontPrintSemicolon
 
@@ -424,70 +616,344 @@ This is done by chunking the individuals, both the binary and ternary part, and 
     \Return{$x$, $\sigma_x$}
 
 \end{algorithm}
- 
 
-\section{Experimental Results}\label{sec:experi}
+\subsection{Recombination}
+\label{sec:ES_rec}
+
+The continuous nature of the ES algorithm makes it possible to use some recombination operators that are not possible in GA algorithms.
+Due to these differences, our recombination operator does not create two children from two parents, but instead creates one child from two or more parents.
+The four different recombination techniques are covered are: discrete and intermediate recombination, and their global variants.
+
+Discrete recombination chooses two parent solutions randomly from the pool of selected parents, and for each gene, chooses one of the two parents from which to inherit the gene.
+This is essentially identical to the \textit{uniform recombination} operator in GA algorithms.
+Its global counterpart does not choose from just two parents, but for each parameter considers all the available parents, each having equal chance of being selected.
+
+Intermediate recombination is very straightforward; it takes two parents and averages the parameters between the parents.
+The resulting average parameters is the recombined child.
+The global variant averages the parameters over all the parents.
+It might be concerning that this method results in $\lambda$ identical children, but this is not a problem, as the mutation operator will introduce variety into the population shortly after the recombination step.
 
 
-In order to find the optimal parameter settings, tests with different configurations have been executed. 
-In the plots below we show some of the results regarding the \textit{comma} and \textit{plus}-selection in GA and ES.
-The effect of different recombination methods (ES) and population sizes (GA) are also shown. 
-Furthermore, other parameter comparison plots have been added in the appendix \ref{subsecA:ES}, \ref{subsecA:GA}.
+\section{Methodology}
+\label{sec:meth}
 
+As mentioned in Section~\ref{sec:prob}, the problem is to find a set of parameters that will result in the best possible performance of the algorithm.
+The total number of possible solutions given the constraints is $2^{21} \cdot 3^5 \approx 5.1 \cdot 10^8$, which is too large to be searched exhaustively.
+However, we can immediately discard a considerable portion of the search space by using the fact that the matrix part of the solution can take a maximum of nine positive bits.
+This prunes our search space to:
 
-\begin{figure}[H]
+$$\left[ \tochoose{9} + \tochoose{8} + \dots + \tochoose{1}\right]\cdot 3^5 \approx 2.0 \cdot 10^8 $$
+
+While large, it is feasible to search this space exhaustively, when considering the fact that each function evaluation is essentially a lookup operation, taking roughly $70$ nanoseconds on a modern CPU.
+The time needed for such a brute-force search is \textasciitilde $4$ hours, which is acceptable for the purpose of this paper.
+The number of configurations could be further reduced by using a more sophisticated pruning method to discard solutions that would result in different types of invalid neural architectures, but this is not the focus of this project.
+
+When the search space has been mapped out, we start to focus on the different algorithms that can be used to search it more efficiently.
+Before we can show a detailed comparison of the different algorithms, we need to define the parameters that will be used for the experiments.
+To do this, we have defined a handful of different values for all variable parameters and have tried all possible combinations of these parameters.
+The set of configurations that have been tried for the GA algorithm is a product of the parameters in Table~\ref{tab:GA_params}.
+The notation ``\texttt{N}, $\mu$, ($\lambda_{1}$ \& $\lambda_{2}$)'' means that for a population size of \texttt{N}, with a number of parents $\mu$ and the number of children $\lambda$, both $\lambda_{1}$ and $\lambda_{2}$ have been tried for the \textit{plus} and \textit{comma} selection, respectively.
+The total number of resulting configurations is then $8 \cdot 4 \cdot 4 \cdot 6 = 768$.
+Each configuration is run $20$ individual times to reduce the effect of random noise.
+Because we are just interested in results with a budget fixed to 5000 function evaluations, this is not too computationally expensive, only taking \textasciitilde $2\sfrac{1}{2}$ hours on a MacBook Air M1.
+
+\begin{table}[htbp]
     \centering
-    \includegraphics[scale=0.5]{figs/ES/elitism_ES1.png}
-    \captionsetup{width=.9\textwidth}
-    \caption{This figure shows the performance difference between the comma and plus selection method using ES.}
-    \label{fig:ES_commaplus}
-\end{figure}
+    \begin{tabular}{llll}
+        \toprule
+        \texttt{N}, $\mu$, $\lambda$ & \texttt{selection}   & \texttt{recombination} & \texttt{mutation} \\
+        \midrule
+        100, 40, (60 \& 100)         & roulette wheel       & $k$-point ($k=1$)      & uniform (0.01)    \\
+        100, 20, (80 \& 100)         & tournament           & $k$-point ($k=2$)      & uniform (0.04)    \\
+        40, 20, (20 \& 40)           & rank                 & $k$-point ($k=3$)      & uniform (0.1)     \\
+        40, 10, (30 \& 40)           & stochastic universal & uniform                & bit-flip (1)      \\
+        -                            & -                    & -                      & bit-flip (2)      \\
+        -                            & -                    & -                      & bit-flip (3)      \\
+        \bottomrule
+    \end{tabular}
+    \vspace{0.1cm}
+    \caption{The different parameters that have been tried for the GA algorithm.}
+    \label{tab:GA_params}
+\end{table}
 
-\begin{figure}[H]
+In a similar fashion, the set of configurations that have been tried for the ES algorithm is a product of the parameters in Table~\ref{tab:ES_params}.
+This time, we evaluate $8 \cdot 3 \cdot 4 \cdot 2 \cdot 2 \cdot 4 = 1536$ different configurations.
+This experiment is twice as expensive as the one ran for the GA algorithm, which means it takes \textasciitilde $5$ hours on the same device.
+
+\begin{table}[htbp]
     \centering
-    \includegraphics[scale=0.5]{figs/ES/recombination_ES1.png}
+    \begin{tabular}{llllll}
+        \toprule
+        \texttt{N}, $\mu$, $\lambda$ & $\sigma$ & $\tau$ & ind. $\sigma$s & \texttt{chunk\_size} & \texttt{recombination}       \\
+        \midrule
+        100, 40, (60 \& 100)         & 0.01     & 0.1    & \textit{yes}         & 3                    & discrete               \\
+        100, 20, (80 \& 100)         & 0.1      & 0.2    & \textit{no}          & 7                    & intermediate           \\
+        40, 20, (20 \& 40)           & 0.5      & 0.5    & -                    & -                    & discrete (global)      \\
+        40, 10, (30 \& 40)           & -        & 0.99   & -                    & -                    & intermediate (global)  \\
+        \bottomrule
+    \end{tabular}
+    \vspace{0.1cm}
+    \caption{The different parameters that have been tried for the ES algorithm.}
+    \label{tab:ES_params}
+\end{table}
+
+Only when we have explored the behaviour of the algorithms with all these different configurations, will we be able to make a fair comparison between the two algorithms.
+Once we have determined the ``optimal'' setting for each individual parameter, more detailed visualizations will explain the behaviour of the algorithms in more detail.
+This more detailed analysis is done through the use of metrics such as AUC (Area Under the Curve) and ERT (Expected Running Time).
+Visualizations for these experiments are done with help of the IOHanalyzer framework \cite{IOH}.
+
+\section{Experimental Results}
+\label{sec:results}
+
+\subsection*{Search Space Exploration}
+\label{sec:res_search}
+
+\begin{wrapfigure}[30]{r}{0.65\textwidth}
+    \vspace{-0.5cm}
+    \centering
+    \begin{subfigure}[b]{0.3\textwidth}
+        \centering
+        \includegraphics[width=\textwidth]{figs/scores_dist_only108.png}
+        \caption{}
+        \label{fig:search_dist}
+    \end{subfigure}
+    ~
+    \begin{subfigure}[b]{0.3\textwidth}
+        \centering 
+        \includegraphics[width=\textwidth]{figs/scores_hist_only108.png}
+        \caption{}
+        \label{fig:search_hist}
+    \end{subfigure}
+    \vskip\baselineskip
+    \begin{subfigure}[b]{0.3\textwidth}
+        \centering
+        \includegraphics[width=\textwidth]{figs/scores_dist_high_only108.png}
+        \caption{}
+        \label{fig:search_dist_high}
+    \end{subfigure}
+    ~
+    \begin{subfigure}[b]{0.3\textwidth}
+        \centering 
+        \includegraphics[width=\textwidth]{figs/scores_hist_high_only108.png}
+        \caption{}
+        \label{fig:search_hist_high}
+    \end{subfigure}
+    \captionsetup{width=.55\textwidth}
     \caption{
-    This figure shows the performance difference between the different recombination methods (discrete (global) / intermediate (global)) using ES.
-    The x-axis displays the occurrences of each accuracy value (y-axis). }
-    \label{fig:ES_recombination}
-\end{figure}
-
-\begin{figure}[H]
-    \centering
-    \includegraphics[scale = 0.4]{figs/scores_hist_only108.png}
-    \caption{
-    This figure shows the results of an exhaustive search approach to the problem.
-    Testing almost 700 million different candidate solutions in order to see what the highest attainable score is.
-    The x-axis displays the bins of scores that were attained, and the y-axis the amount of times each score was attained.
+        The distribution of scores for the search space exploration.
+        \ref{fig:search_dist} \& \ref{fig:search_dist_high} show the raw number of occurrences for each observed score, and \ref{fig:search_hist} \& \ref{fig:search_hist_high} show these distributions in the form of a histogram with 100 bins.
     }
-    \label{fig:Brute-force}
-\end{figure}
+    \label{fig:search}
+\end{wrapfigure}
 
-\begin{figure}[H]
+The exhaustive search of the search space gives us insight into what scores are attainable, and how these scores are distributed.
+The results of this search are shown in Figure~\ref{fig:search}.
+
+It is immediately apparent that the scores are not uniformly distributed, but instead are skewed towards higher scores.
+While this may seem favorable at first, it is important to note that the scores are not normalized.
+The second observation to be made is that there are only \textasciitilde $7.2 \cdot 10^7$ unique invalid solutions left in our pruned search space.
+When we take into consideration that we discarded more than $60\%$ before our search, we can state that the number of invalid solutions left is negligible, and conclude that roughly $40\%$ of all solutions are valid.
+The last result obtained from performing this search is that the absolute optimal score $f^*$ is \textasciitilde $0.95055$ and occurs $45$ times.
+
+In subsequent sections, this optimal value will not appear in the results, as this would mean that all $20$ repetitions of a given configuration have found the optimal solution.
+With a budget of $5000$, this is extremely unlikely, but there are still some configurations that come close to this score.
+
+\newpage
+
+\subsection*{Parameter Exploration}
+
+In the plots below we show some of the results regarding the effect of using $\mu + \lambda$ versus $\mu, \lambda$ selection (Figure~\ref{fig:elitism}), for both the ES and GA algorithms.
+Similarly, the effect of using different population sizes (Figure~\ref{fig:pop_size}) is shown for both optimizers, alongside a selection algorithm-specific parameters.
+A figure compares two to four different parameter settings by splitting all configurations based on the specific parameter that is being compared.
+Each subfigure consists of two parts.
+On the foreground, a scatterplot is shown, where each point represents the $f^*$ of a single configuration of an algorithm, averaged over $20$ repetitions.
+The configuration are ranked from worst to best along the x-axis based on their $f^*$, which is determines their position in the Pareto front.
+The background of a subfigure shows a histogram along the y-axis, to better demonstrate how the function values are distributed for the given parameter setting.
+For a more comprehensive overview of all parameter exploration results, please refer to the Appendix (\ref{app:params_ga} \& \ref{app:params_es}).
+
+\begin{figure*}[htbp]
     \centering
-    \includegraphics[scale = 0.5]{figs/GA/elitism_GA1.png}
+    \begin{subfigure}[b]{0.45\textwidth}
+        \centering
+        \includegraphics[width=\textwidth]{figs/GA/elitism_GA.png}
+        \caption{}
+        \label{fig:elitism_GA}
+    \end{subfigure}
+    ~
+    \begin{subfigure}[b]{0.45\textwidth}
+        \centering 
+        \includegraphics[width=\textwidth]{figs/ES/elitism_ES.png}
+        \caption{}
+        \label{fig:elitism_ES}
+    \end{subfigure}
+    \captionsetup{width=.9\textwidth}
     \caption{
-    This figure displays the performance difference between elitism and no elitism in the population using GA.
-    The x-axis represents the occurrences of each accuracy value (y-axis). }
-    \label{fig:GA_elitism}
-\end{figure}
+        Final function value comparison for all configurations with different elitism settings for the genetic algorithm (left) and evolution strategy (right).
+        The background of each subfigure shows a histogram along the y-axis, to better demonstrate how the function values are distributed for the given parameter setting.
+    }
+    \label{fig:elitism}
+\end{figure*}
 
-\begin{figure}[H]
+\begin{figure*}[htbp]
     \centering
-    \includegraphics[scale = 0.5]{figs/GA/recombination_GA1.png}
+    \begin{subfigure}[b]{0.45\textwidth}
+        \centering
+        \includegraphics[width=\textwidth]{figs/GA/pop_size_GA.png}
+        \caption{}
+        \label{fig:pop_size_GA}
+    \end{subfigure}
+    ~
+    \begin{subfigure}[b]{0.45\textwidth}
+        \centering 
+        \includegraphics[width=\textwidth]{figs/ES/pop_size_ES.png}
+        \caption{}
+        \label{fig:pop_size_ES}
+    \end{subfigure}
+    \captionsetup{width=.9\textwidth}
     \caption{
-    This figure shows the performance difference between the different recombination methods;
-    kp(1), kp(2), kp(3) and uniform recombination. 
-    The x-axis displays the occurrences of each accuracy value (y-axis). }
-    \label{fig:GA_recombination}
-\end{figure}
+        Final function value comparison for all configurations with different population sizes for the GA (left) and ES (right).
+    }
+    \label{fig:pop_size}
+\end{figure*}
+
+It seems that $\mu + \lambda$ selection is better than $\mu, \lambda$ selection for both the GA and ES algorithms, although the difference is not as pronounced for the GA algorithm.
+This is surprising, as ES algorithms are known to generally perform better with $\mu, \lambda$ selection.
+A possible explanation for this is that the mutation operator as implemented in our evolution strategy is not particularly effective for handling this discrete neural architecture search problem.
+
+The population size is also an important parameter for both algorithms, as there is a direct tradeoff between number of generations (i.e. number of times the selection, recombination and mutation operators are applied) and the population size (i.e. the diversity of solutions in the population).
+The differences between GA and ES are still apparent, but between the two parameter settings, the differences are not as pronounced as for the elitism settings.
+For both algorithms, the best results are obtained with a population size of $100$.
+
+\newpage
+
+Although they use different recombination methods, for both the GA and ES algorithms we have tested four different recombination settings, which are shown in Figure~\ref{fig:recombination}.
+For our genetic algorithm, it can be observed that the best results are obtained with the uniform crossover operator.
+The second best results are seen with $3$-point crossover, as it has a disproportionately high number of configurations that fall into the second-to-best bin.
+The differences between all of these operators are very minor, so we conclude that the recombination operator is not the most important parameter for the GA algorithm.
+The results for our evolution strategy are more interesting, as a clear divide between discrete and intermediate recombination operators can be observed.
+Both the 2-parent and global variants of the discrete recombination operator perform better than their intermediate equivalents.
+This too, is surprising, as the discrete recombination operator is widely considered to be less effective than the intermediate recombination operator.
+
+\begin{figure*}[htbp]
+    \centering
+    \begin{subfigure}[b]{0.45\textwidth}
+        \centering
+        \includegraphics[width=\textwidth]{figs/GA/recombination_GA.png}
+        \caption{}
+        \label{fig:recombination_GA}
+    \end{subfigure}
+    ~
+    \begin{subfigure}[b]{0.45\textwidth}
+        \centering 
+        \includegraphics[width=\textwidth]{figs/ES/recombination_ES.png}
+        \caption{}
+        \label{fig:recombination_ES}
+    \end{subfigure}
+    \captionsetup{width=.9\textwidth}
+    \caption{
+        Final function value comparison for all configurations with different recombination operators for the GA (left) and ES (right) algorithm.
+    }
+    \label{fig:recombination}
+\end{figure*}
+
+\begin{wrapfigure}[12]{r}{.55\textwidth}
+    \vspace{-2.5cm}
+    \centering
+    \includegraphics[width=.5\textwidth]{figs/GA/selection_GA.png}
+    \captionsetup{width=.55\textwidth}
+    \caption{
+        Final function value comparison for all configurations with different selection operators for GA.
+        }
+        \label{fig:selection_GA}
+\end{wrapfigure}
+
+\vspace{2cm}
+Performances of the four different selection operators that we have tested for the GA algorithm are shown in Figure~\ref{fig:selection_GA}.
+Here, we do see some very distinct Pareto fronts, with the two best selection methods being \textit{tournament} and \textit{rank}.
+\textit{Stochastic universal sampling} is the third best selection operator, and \textit{roulette wheel} is by far the worst.
+This is in line with what was described in Section~\ref{subsec:ga_sel}.
+Because the fitness scores are not normalized, the roulette wheel selection operator is not able to properly assign selection probabilities to the individuals in the population, whereas the other three operators are able to do so.
+
+\newpage
+    
+\begin{wrapfigure}[11]{r}{.55\textwidth} % wss wil je hiermee gaan spelen (11) als er shit kapot gaat
+    \vspace{-0.5cm}
+    \centering
+    \includegraphics[width=.5\textwidth]{figs/ES/tau_ES.png}
+    \captionsetup{width=.55\textwidth}
+    \caption{
+        Final function value comparison for all configurations with different $\tau$ values for ES.
+    }
+    \label{fig:tau_ES}
+\end{wrapfigure}
+
+Our last set of experiments for the parameter exploration that are worth mentioning are the ones that we have done for the variables involved with the mutation of the ES algorithm.
+As mentioned in the previous parts of this section, the mutation operator is crucial for the success of the ES algorithm.
+The mutation operator is responsible for introducing diversity into the population, and it is therefore important that it is able to do so in a way that is beneficial for the search.
+\todo{Add interpretation of the updated results. Very long blabla about the results. We also really want to fill up this space here.}
+
+\vspace{5cm}
+
+\begin{figure*}[htbp]
+    \centering
+    \includegraphics[width=\textwidth]{figs/ES/sigma_ES.png}
+    \captionsetup{width=.55\textwidth}
+    \caption{
+        Final function value comparison for all configurations with different $\sigma$ values for ES.
+    }
+    \label{fig:sigma_ES}
+\end{figure*}
+
+\newpage
+
+\subsection*{Final Configurations}
+\label{subsec:final_configs}
+
+\todo{Here we have two dummy tables where we want to outline the final 4 configurations for GA, and for ES.}
 
 
 
+\begin{table}[htbp]
+    \centering
+    \begin{tabular}{cccc|cc}
+        \toprule
+        \texttt{N}, $\mu$, $\lambda$ & \texttt{selection} & \texttt{recombination} & \texttt{mutation}
+            & $f^*_{\mathrm{avg}} $ & $AUC$ \\ % this is still the header of the table
+        \midrule
+        100, 80, 20  &  tournament  &  uniform   &  uniform (0.04)  &  \todo{tba}  &  \todo{tba}  \\
+        100, 80, 20  &  rank        &  uniform   &  uniform (0.01)  &  \todo{tba}  &  \todo{tba}  \\
+        100, 90, 10  &  tournament  &  uniform   &  uniform (0.04)  &  \todo{tba}  &  \todo{tba}  \\
+        100, 90, 10  &  rank        &  uniform   &  uniform (0.01)  &  \todo{tba}  &  \todo{tba}  \\
+        \bottomrule
+    \end{tabular}
+    \vspace{0.1cm}
+    \caption{\todo{Final results neef (GA).}}
+    \label{tab:GA_final_configs}
+\end{table}
+
+\begin{table}[htbp]
+    \centering
+    \begin{tabular}{cccccc|cc}
+        \toprule
+        \texttt{N}, $\mu$, $\lambda$ & $\sigma$ & $\tau$ & ind. $\sigma$s & \texttt{chunk\_size} & \texttt{recombination}
+            & $f^*_{\mathrm{avg}}$ & $AUC$ \\ % this is still the header of the table
+        \midrule
+        100, 80, 20  &  0.5  &  0.5  &  \textit{yes}  &  3  & discrete           &  \todo{tba}  &  \todo{tba}  \\
+        100, 80, 20  &  0.1  &  0.5  &  \textit{yes}  &  3  & discrete (global)  &  \todo{tba}  &  \todo{tba}  \\
+        100, 90, 10  &  0.5  &  0.5  &  \textit{yes}  &  3  & discrete           &  \todo{tba}  &  \todo{tba}  \\
+        100, 90, 10  &  0.1  &  0.5  &  \textit{yes}  &  3  & discrete (global)  &  \todo{tba}  &  \todo{tba}  \\
+        \bottomrule
+    \end{tabular}
+    \vspace{0.1cm}
+    \caption{\todo{Final results neef (ES).}}
+    \label{tab:ES_final_configs}
+\end{table}
 
 
+\todo{Add the $f^*_{\mathrm{avg}}$ and ioh metrics (AUC) to the tables and add the plots from ioh. Also try to make sense of them.}
 
-\section{Discussion and Conclusion}\label{sec:dis&res}
+\section{Discussion and Conclusion}
+\label{sec:disres}
 
 What to report? 
 \begin{itemize}
@@ -495,13 +961,6 @@ What to report?
     \item Empirical analysis of algorithms performance using ERT (expected running times) and ECDF ( empirical cumulative distribution function of the running time) curves. 
 \end{itemize}
 
-Before discussing the EA and GA's performance, the brute-force solution \ref{fig:Brute-force} provides some interesting insights. Some architectures definitely score below 0.8 and even below 0.4. Most solutions however hover between 0.8 and a maximum score of ~0.95. The results show the average over 20 repetitions, where in general the scores mainly reside upwards of the 0.91 fitness score. 
-
-After testing the several parameters and plotting their performance using the ES algorithm, we can conclude the following things;
-$\mu + \lambda$ selection is the better performing population selection method in ES (and GA) when compared to $\mu , \lambda$ \ref{fig:ES_commaplus}.
-This seems logical since the fit parents from the previous solution are also kept in the next generation.
-Allowing new solutions to enter, but not losing the high quality ones so far.
-Discrete recombination performed better than intermediate, no distinct difference between global and non-global versions \ref{fig:ES_recombination}. 
 Intermediate recombination averages between parents, gradually averaging all the individuals, creating a slow descent into one solution.  
 Keeping track of an individual's $\sigma$ as opposed to a global $\sigma$ provides similar results \ref{fig:A_ES_indivsigma}.
 Although not a big difference, a higher population seems to accomplish better scores \ref{fig:A_ES_popsize}. 
@@ -525,12 +984,75 @@ The same analysis as ES is also applied to the GA algorithm, from which we can c
 \section{Appendix}
 \label{sec:app}
 
-\subsection{Evolution Strategy - parameter plots}
-\label{subsecA:ES}
+
+\subsection{Parameter Plots - GA}
+\label{app:params_ga}
+
+
 
 \begin{figure*}[htbp]
     \centering
-    \includegraphics[width=\textwidth]{figs/ES/individual_sigmas_ES1.png}
+    \includegraphics[width=\textwidth]{figs/GA/pop_size_GA.png}
+    \caption{
+    This figure shows the effect population size (40 versus 100) has on the accuracy performance. 
+    The x-axis displays the occurrences of each accuracy value (y-axis) 
+    }
+    \label{fig:A_GA_popsize}
+\end{figure*}
+
+
+\begin{figure*}[htbp]
+    \centering
+    \includegraphics[width=\textwidth]{figs/GA/bit_flips_GA.png}
+    \caption{
+    TODO: Bitflips caption
+    The x-axis displays the occurrences of each accuracy value (y-axis)
+    }
+    \label{fig:A_GA_bitflip}
+\end{figure*}
+
+
+\begin{figure*}[htbp]
+    \centering
+    \includegraphics[width=\textwidth]{figs/GA/mutation_GA.png}
+    \caption{
+    TODO: caption 
+    The x-axis displays the occurrences of each accuracy value (y-axis)
+    }
+    \label{fig:A_GA_mutation}
+\end{figure*}
+
+
+\begin{figure}[htbp]
+    \hspace*{-1.5 cm} 
+    \centering
+    \includegraphics[scale = 0.5]{figs/GA/mutation_rate_GA.png}
+    \caption{
+    TODO: caption
+    The x-axis displays the occurrences of each accuracy value (y-axis). }
+    \label{fig:GA_mutation_rate}
+\end{figure}
+
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[scale = 0.5]{figs/GA/selection_GA.png}
+    \caption{
+    TODO: caption
+    The x-axis displays the occurrences of each accuracy value (y-axis). }
+    \label{fig:GA_selection}
+\end{figure}
+
+
+\newpage
+
+
+\subsection{Parameter Plots - ES}
+\label{app:params_es}
+
+\begin{figure*}[htbp]
+    \centering
+    \includegraphics[width=\textwidth]{figs/ES/individual_sigmas_ES.png}
     \caption{
     This figure shows the difference of using individual sigmas, versus one global sigma for every individual. 
     The x-axis displays the occurrences of each accuracy value (y-axis).
@@ -542,7 +1064,7 @@ The same analysis as ES is also applied to the GA algorithm, from which we can c
 
 \begin{figure*}[htbp]
     \centering
-    \includegraphics[width=\textwidth]{figs/ES/pop_size_ES1.png}
+    \includegraphics[width=\textwidth]{figs/ES/pop_size_ES.png}
     \caption{
     This figure shows the effect population size (40 versus 100) has on the accuracy performance. 
     The x-axis displays the occurrences of each accuracy value (y-axis) 
@@ -553,7 +1075,7 @@ The same analysis as ES is also applied to the GA algorithm, from which we can c
 
 \begin{figure*}[htbp]
     \centering
-    \includegraphics[width=\textwidth]{figs/ES/sigma_ES1.png}
+    \includegraphics[width=\textwidth]{figs/ES/sigma_ES.png}
     \caption{
     This figure shows the results of different sigma ($\sigma$) starting values (0.01, 0.1, 0.5). 
     The x-axis displays the occurrences of each accuracy value (y-axis)
@@ -564,7 +1086,7 @@ The same analysis as ES is also applied to the GA algorithm, from which we can c
 
 \begin{figure*}[htbp]
     \centering
-    \includegraphics[width=\textwidth]{figs/ES/tau_ES1.png}
+    \includegraphics[width=\textwidth]{figs/ES/tau_ES.png}
     \caption{
     This figure displays the effect of steps-size differentiation value tau ($\tau$) has. 
     Four different step-sizes are tested; 0.1, 0.2, 0.5 and 0.99. 
@@ -575,78 +1097,17 @@ The same analysis as ES is also applied to the GA algorithm, from which we can c
 
 \newpage
 
-\subsection{Genetic Algorithm - parameter plots}
-\label{subsecA:GA}
-
-
-
-\begin{figure*}[htbp]
-    \centering
-    \includegraphics[width=\textwidth]{figs/GA/pop_size_GA1.png}
-    \caption{
-    This figure shows the effect population size (40 versus 100) has on the accuracy performance. 
-    The x-axis displays the occurrences of each accuracy value (y-axis) 
-    }
-    \label{fig:A_GA_popsize}
-\end{figure*}
-
-
-\begin{figure*}[htbp]
-    \centering
-    \includegraphics[width=\textwidth]{figs/GA/bit_flips_GA1.png}
-    \caption{
-    TODO: Bitflips caption
-    The x-axis displays the occurrences of each accuracy value (y-axis)
-    }
-    \label{fig:A_GA_bitflip}
-\end{figure*}
-
-
-\begin{figure*}[htbp]
-    \centering
-    \includegraphics[width=\textwidth]{figs/GA/mutation_GA1.png}
-    \caption{
-    TODO: caption 
-    The x-axis displays the occurrences of each accuracy value (y-axis)
-    }
-    \label{fig:A_GA_mutation}
-\end{figure*}
-
-
-\begin{figure}[H]
-    \hspace*{-1.5 cm} 
-    \centering
-    \includegraphics[scale = 0.5]{figs/GA/mutation_rate_GA1.png}
-    \caption{
-    TODO: caption
-    The x-axis displays the occurrences of each accuracy value (y-axis). }
-    \label{fig:GA_mutation_rate}
-\end{figure}
-
-
-\begin{figure}[H]
-    \centering
-    \includegraphics[scale = 0.5]{figs/GA/selection_GA1.png}
-    \caption{
-    TODO: caption
-    The x-axis displays the occurrences of each accuracy value (y-axis). }
-    \label{fig:GA_selection}
-\end{figure}
-
-
-
-
-\newpage
 \subsection{Workflow python scripts}
+\label{app:workflow}
 
 \begin{figure}[htbp]
     \centering
     \includegraphics[width=\textwidth]{figs/workflow_EA.drawio (1).png}
     \caption{ 
-    This workflow shows the general interactions of the different functions. 
-    Hopefully helping to create a better sense of connectivity between the different seen operations. 
-    The different coloring represent the connection to the file they belong in; 
-    main.py (blue), evolution\_strategies.py (green), genetic\_algorithm.py (red) and purple being function needed to call the script from other sources.
+        This workflow shows the general interactions of the different functions. 
+        Hopefully helping to create a better sense of connectivity between the different seen operations. 
+        The different coloring represent the connection to the file they belong in; 
+        main.py (blue), evolution\_strategies.py (green), genetic\_algorithm.py (red) and purple being function needed to call the script from other sources.
     }
     \label{fig:A_workflow}
 \end{figure}
