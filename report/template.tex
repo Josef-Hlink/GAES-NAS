@@ -929,147 +929,208 @@ Considering that $\tau$ and $\sigma$ both influence the mutation rate, no defini
 
 \subsection*{Final Configurations}
 \label{subsec:final_configs}
-\todo{Here we have two dummy tables where we want to outline the final 4 configurations for GA, and for ES.}
 
-Having completed the experiments with the various configurations of both ES and GA, we have defined the final fittest configurations for the pair. 
-The top eyeballed configurations.  
-
+Having completed the experiments with the various configurations of both ES and GA, we have defined the final fittest configurations for the algorithms.
+After inspecting all varied parameter's performances individually, we compiled a set of four configurations for GA (Table~\ref{tab:GA_final_configs}) and 4 configurations for ES (Table~\ref{tab:ES_final_configs}).
 
 \begin{table}[htbp]
     \centering
-    \begin{tabular}{cccc|cc}
+    \begin{tabular}{c|cccc|cc}
         \toprule
-        \texttt{N}, $\mu$, $\lambda$ & \texttt{selection} & \texttt{recombination} & \texttt{mutation}
+        \texttt{config} &
+        \texttt{N}$^\dagger$, $\mu$, $\lambda$ & \texttt{selection} & \texttt{recombination}$^\dagger$ & \texttt{mutation}
             & $f^*_{\mathrm{avg}} $ & $AUC$ \\ % this is still the header of the table
         \midrule
-        100, 80, 20  &  tournament  &  uniform   &  uniform (0.04)  &  \textbf{0.9478}  &   0.9871           \\
-        100, 80, 20  &  rank        &  uniform   &  uniform (0.01)  &  0.9458           &   0.9863           \\
-        100, 90, 10  &  tournament  &  uniform   &  uniform (0.04)  &  0.9462           &   \textbf{0.9928}  \\
-        100, 90, 10  &  rank        &  uniform   &  uniform (0.01)  &  0.9456           &   0.9862           \\
+        1 & 100, 80, 20  &  tournament  &  uniform   &  uniform (0.04)  &  \textbf{0.9478}  &   0.9871           \\
+        2 & 100, 80, 20  &  rank        &  uniform   &  uniform (0.01)  &  0.9458           &   0.9863           \\
+        3 & 100, 90, 10  &  tournament  &  uniform   &  uniform (0.04)  &  0.9462           &   \textbf{0.9928}  \\
+        4 & 100, 90, 10  &  rank        &  uniform   &  uniform (0.01)  &  0.9456           &   0.9862           \\
         \bottomrule
     \end{tabular}
     \vspace{0.1cm}
-    \caption{\todo{Final results neef (GA).}}
+    \captionsetup{width=.75\textwidth, justification=centering}
+    \caption{
+        The four configurations of the genetic algorithm used for the final experiments.
+        Parameters noted with $^\dagger$ are fixed to reduce complexity.
+    }
     \label{tab:GA_final_configs}
 \end{table}
 
 \begin{table}[htbp]
     \centering
-    \begin{tabular}{cccccc|cc}
+    \begin{tabular}{c|cccccc|cc}
         \toprule
-        \texttt{N}, $\mu$, $\lambda$ & $\sigma$ & $\tau$ & ind. $\sigma$s & \texttt{chunk\_size} & \texttt{recombination}
+        \texttt{config} &
+        \texttt{N}$^\dagger$, $\mu$, $\lambda$ & $\sigma$ & $\tau^\dagger$ & ind. $\sigma$s$^\dagger$ & \texttt{chunk\_size}$^\dagger$ & \texttt{recombination}
             & $f^*_{\mathrm{avg}}$ & $AUC$ \\ % this is still the header of the table
         \midrule
-        100, 80, 20  &  0.5  &  0.5  &  \textit{yes}  &  3  & discrete           &  0.9495           &  0.9887          \\
-        100, 80, 20  &  0.1  &  0.5  &  \textit{yes}  &  3  & discrete (global)  &  \textbf{0.9501}  &  0.9919          \\
-        100, 90, 10  &  0.5  &  0.5  &  \textit{yes}  &  3  & discrete           &  0.9495           &  0.9919          \\
-        100, 90, 10  &  0.1  &  0.5  &  \textit{yes}  &  3  & discrete (global)  &  0.9488           & \textbf{ 0.9944} \\
+        1 & 100, 80, 20  &  0.5  &  0.5  &  \textit{yes}  &  3  & discrete           &  0.9495           &  0.9887         \\
+        2 & 100, 80, 20  &  0.1  &  0.5  &  \textit{yes}  &  3  & discrete (global)  &  \textbf{0.9501}  &  0.9919         \\
+        3 & 100, 90, 10  &  0.5  &  0.5  &  \textit{yes}  &  3  & discrete           &  0.9495           &  0.9919         \\
+        4 & 100, 90, 10  &  0.1  &  0.5  &  \textit{yes}  &  3  & discrete (global)  &  0.9488           & \textbf{0.9944} \\
         \bottomrule
     \end{tabular}
     \vspace{0.1cm}
-    \caption{\todo{Final results neef (ES).}}
+    \captionsetup{width=.75\textwidth, justification=centering}
+    \caption{
+        The four configurations of the evolution strategy used for the final experiments.
+        Parameters noted with $^\dagger$ are fixed to reduce complexity.
+    }
     \label{tab:ES_final_configs}
 \end{table}
 
-
-\todo{Add the $f^*_{\mathrm{avg}}$ and ioh metrics (AUC) to the tables and add the plots from ioh. Also try to make sense of them.}
-
-
-\todo{Introduce the learning curves of GA below. Note that we have two different plots here, one with best per generation and one with best so far. Also explain what can be seen (raw results of repetitions in thin lines, average over repetitions in thick lines, and standard deviation with the shaded area).}
+The final plots originate from IOH analyzer in order to measure the performance of the GA and ES algorithm. 
+The AUC values from the ECDF curves of both algorithms have already been shown, but the plots themselves are displayed here. 
+Figure \ref{fig:GA_ECDF} shows the proportion of runs that have found a solution with a target value of 0.94 ($f_{\mathrm{target}})$. 
+The x-axis show the amount of function evaluations needed to succeed reaching $f_{\mathrm{target}}$
+It can be seen that the 3rd configuration needs the least amount of function evaluations, followed by configuration 2, 4 and 1. 
+The ES ECDF figure (\ref{fig:ES_ECDF}) shows configuration 4 performing best followed by 2 and 3 simultaneously, and 1 finishing last.
 
 \begin{figure*}[htbp]
     \centering
-    \includegraphics[width=.75\textwidth]{figs/GA/GA_f1.png}
+    \includegraphics[width=.75\textwidth]{figs/IOH/GA_ECDF.png}
     \captionsetup{width=.75\textwidth}
-    \caption{dummy}
+    \caption{ECDF curves for the four GA configurations measured earlier.}
+    \label{fig:GA_ECDF}
+\end{figure*}
+
+\newpage
+
+\begin{figure*}[htbp]
+    \centering
+    \includegraphics[width=.85\textwidth]{figs/IOH/ES_ECDF.png}
+    \captionsetup{width=.85\textwidth}
+    \caption{ECDF curves for the four ES configurations measured earlier.}
+    \label{fig:ES_ECDF}
+\end{figure*}
+
+\begin{wrapfigure}[25]{r}{0.65\textwidth}
+    \vspace{-1cm}
+    \centering
+    \includegraphics[width=.65\textwidth]{figs/IOH/GA_ERT.png}
+    \captionsetup{width=.55\textwidth}
+    \caption{The result of IOH analyzer Expected Run Time (ERT) analysis on the four GA configurations measured earlier.}
+    \label{fig:GA_ERT}
+\end{wrapfigure}
+
+\vspace{1.8cm}
+
+The other performance measure were the ERT results of both GA and ES. 
+Figure \ref{fig:GA_ERT} shows to the amount of evaluations needed to find a solution reaching a fitness of 0.94 using GA. 
+Here we can see that configuration 2, 3 and 4 need the most amount of evaluations, and configuration 1 is the better performing one.
+
+Figure \ref{fig:ES_ERT} shows the ERT curves of the ES algorithm. 
+With small margins, it is noticeable that configuration 4 required the most evaluations, followed by configuration 1 and 3 respectively.
+Making configuration 2 the better performing algorithm.
+
+The results from the AUC are related to the performance of each configuration.
+An increased AUC means that fewer function evaluations have to be made before reaching $f_{\mathrm{target}}$.
+A relation between $f^{*}_{\mathrm{avg}}$ and ERT performance can also be seen.
+Where a high $f^{*}_{\mathrm{avg}}$ means the the ERT performance is elevated, thus less evaluations are needed.
+
+\newpage
+
+\begin{figure*}[htbp]
+    \centering
+    \includegraphics[width=.65\textwidth]{figs/IOH/ES_ERT.png}
+    \captionsetup{width=.65\textwidth}
+    \caption{The result of IOH analyzer Expected Run Time (ERT) analysis on the four ES configurations measured earlier.}
+    \label{fig:ES_ERT}
+\end{figure*}
+
+Figure \ref{fig:GA_f1} presents the fixed-budget results of the 4 final GA configurations.
+This plot shows that the algorithm is characterized by a strong start, all runs containing at least one solution with a fitness score between $0.940$ \& $0.945$.
+After this substantial beginning however, a semi stagnant stage is hit, where the rate of improvement is low.
+There are some outliers; the thin lines reaching the theoretical limit (dashed gray line), are some of the fittest possible solutions to be found.
+The red downwards spike in generation 11 shows that it is possible to end up with a worse solution.
+Overall, the GA shows a robust performance, having more positive outlier spikes than negative.
+
+\begin{figure*}[htbp]
+    \centering
+    \includegraphics[width=.65\textwidth]{figs/GA/GA_f1.png}
+    \captionsetup{width=.7\textwidth}
+    \caption{
+        Best fitness found per population for the final four configurations of GA.
+        Fixed parameters are not reflected in the labels, but can be found in Table~\ref{tab:GA_final_configs}.
+    }
     \label{fig:GA_f1}
 \end{figure*}
+
+\newpage
+
+The previous figure showed the average performance, where no clear increase of performance is seen.
+When we only consider the best solution found in a run so far (see Figure~\ref{fig:GA_f2}), an apparent gain of fitness can be recognized more easily.
+Final configuration 4 of the GA performs the best, which was also determined by the AUC analysis and Figure~\ref{fig:GA_f1}.
 
 \begin{figure*}[htbp]
     \centering
     \includegraphics[width=.75\textwidth]{figs/GA/GA_f2.png}
     \captionsetup{width=.75\textwidth}
-    \caption{dummy}
+    \caption{Best fitness found so far (over the course of the optimization process) for the final four configurations of GA.}
     \label{fig:GA_f2}
 \end{figure*}
 
-\newpage
-
-
-% ---------------------------------------------------------------------------------------------------------------------------
-% ---------------------------------------------------------------------------------------------------------------------------
-% ---------------------------------------------------------------------------------------------------------------------------
-%                              VANAF HIER GA IK SHIT IN VSCODE SCHRIJVEN, SO NO AANPASSINGEN PLEASE
-% ---------------------------------------------------------------------------------------------------------------------------
-% ---------------------------------------------------------------------------------------------------------------------------
-
-
-
-
-\todo{Introduce the learning curves of ES below. Note that the standard deviation reaches higher than the theoretical limit, and that this is fine, because they do not reflect actual observations.}
-
-\todo{Explain why we only see one plot here instead of two.}
+The fixed-budget results for the final four configurations of ES are shown in Figure~\ref{fig:ES_f}.
+Please note that the standard deviation reaches higher than the theoretical limit in some cases, and that this is okay, because these values do not reflect actual observations.
+The first thing that appears is that the best fitness found per population is strictly increasing.
+This was not the case for the genetic algorithm, where -- while trending upwards -- drops in fitness were observed regularly.
+While both algorithms employ \textit{elitist} selection (i.e., the best $\mu$ solutions are always carried over to the next generation), GA uses stochastic parent selection, while ES is purely deterministic in this regard.
+Therefore, in the case of GA, there exists the possibility for a population $\mathbf{X}_t$ to have a lower $f^*_{\mathrm{found}}$ (highest observed fitness) than the previous population $\mathbf{X}_{t-1}$, whereas this is not possible for ES.
 
 \begin{figure*}[htbp]
     \centering
     \includegraphics[width=.75\textwidth]{figs/ES/ES_f.png}
     \captionsetup{width=.75\textwidth}
-    \caption{dummy}
+    \caption{
+        Best fitness found per population for the final four configurations of ES.
+        Fixed parameters are not reflected in the labels, but can be found in Table~\ref{tab:ES_final_configs}.
+    }
     \label{fig:ES_f}
 \end{figure*}
 
-
-
-
-
-\newpage
-
-\todo{Introduce comparison.}
+Secondly, the number of individual runs (thin lines) of the algorithm that reach the optimal fitness $f^*$ is significantly higher for ES than for GA.
+Last, but certainly not least, the averaged $f^*_{\mathrm{found}}$ (thick line) when the budget is exhausted is considerably higher, mainly due to a much faster convergence at the start of the run.
+To illustrate this, Figure~\ref{fig:ES_f} compares the best performing\footnote{
+    Here, the best performing configuration is defined as the configuration that has the highest average $f^*_{\mathrm{found}}$ when the budget is exhausted out of the four configurations that were selected for this analysis.
+} configurations of GA and ES.
+While not concrete evidence of superiority, it is at the very least interesting to see that our adaptation of an evolutionary strategy on a discrete problem is by no means inferior to a genetic algorithm.
 
 \begin{figure*}[htbp]
     \centering
     \includegraphics[width=.75\textwidth]{figs/GA_vs_ES.png}
     \captionsetup{width=.75\textwidth}
-    \caption{dummy}
+    \caption{
+        Comparison of the best performing (out of four empirically selected) configurations of GA versus ES.
+    }
     \label{fig:GA_vs_ES}
 \end{figure*}
 
-\todo{State that it is interesting to see that ES performs significantly better than GA.}
+The fact that ES seems to be better suited for this problem is not surprising, as this was already foreshadowed in the parameter exploration experiments.
+While we only examined the parameters with the distribution plots, the same thing can be done for all of the configurations for GA versus ES, as shown in Figure~\ref{fig:GA_vs_ES_exp}.
+Using these observations, we can more confidently state that the evolutionary strategy approach is the more promising one.
 
-\todo{Why is this interesting? In the exploratory phase we saw that ES showed far worse results.}
-
-\todo{Conclusion? While GA may be more robust and intuitive, with the right configurations, ES can outperform it.}
+\begin{figure*}[htbp]
+    \centering
+    \includegraphics[width=.75\textwidth]{figs/GA_vs_ES_exp.png}
+    \captionsetup{width=.75\textwidth}
+    \caption{
+        Comparison of all configurations of GA versus ES, shown as a distribution of the $f^*_{\mathrm{avg}}$ when the budget is exhausted.
+    }
+    \label{fig:GA_vs_ES_exp}
+\end{figure*}
 
 \newpage
-
-
-
-% ---------------------------------------------------------------------------------------------------------------------------
-%                                                       tot hier
-% ---------------------------------------------------------------------------------------------------------------------------
-
 
 \section{Discussion and Conclusion}
 \label{sec:disres}
 
-What to report? 
-\begin{itemize}
-    \item AUC values (Area under curve) 
-    \item Empirical analysis of algorithms performance using ERT (expected running times) and ECDF ( empirical cumulative distribution function of the running time) curves. 
-\end{itemize}
+The results of this study show that the evolutionary strategy approach is more promising than the genetic algorithm approach.
+This is not what we initially expected, as we were under the impression that the genetic algorithm would be the better choice, due to its discrete nature.
+However, the results show that the evolutionary strategy approach is more promising, as it is able to find the optimal solution faster and more reliably.
+This is not to say that the genetic algorithm approach is not useful, as it can still be used to find a good solution, but from the results it can be stated that it is slower to converge when compared to the evolutionary strategy approach.
+The results also show that the evolutionary strategy approach is more robust to changes in the parameters, as the results are more consistent across the different configurations.
 
-Intermediate recombination averages between parents, gradually averaging all the individuals, creating a slow descent into one solution.  
-Keeping track of an individual's $\sigma$ as opposed to a global $\sigma$ provides similar results \ref{fig:A_ES_indivsigma}.
-Although not a big difference, a higher population seems to accomplish better scores \ref{fig:A_ES_popsize}. 
-Also very alike are the results of different $\sigma$ values, where higher values (0.5 \& 0.1) seem to work better, and lower ones behave second-rate \ref{fig:A_ES_sigmas}. 
-High values probably introduce more variation in the solutions, quickly finding the fitter ones.
-When considering $\tau$ rates, lower ones (0.1, 0.2) outperform the higher rates (0.5, 0.99) \ref{fig:A_ES_tau}.
-Too much variation (high $\tau$) causes some less fit solutions to be selected, which is seen in the increased frequency of lower accuracy rates.
-Thus if we were to recommend a ideal combination, it would be; \textit{plus}-selection, discrete recombination, high population size, 0.5 $\sigma$, and 0.2 $\tau$. 
-
-ADD: GA results. 
-
-The same analysis as ES is also applied to the GA algorithm, from which we can conclude the following things;
+\newpage
 
 \bibliographystyle{unsrt}  
 \bibliography{references}  
@@ -1077,118 +1138,137 @@ The same analysis as ES is also applied to the GA algorithm, from which we can c
 
 \newpage
 
+
+
+% ---------------------------------------------------------------------------------------------------------------------------
+%                                                      V dont touch V
+% ---------------------------------------------------------------------------------------------------------------------------
+
+
+
 \appendix
 \section{Appendix}
 \label{sec:app}
 
 
-\subsection{Parameter Plots - GA}
+\subsection{Parameter Plots - Genetic Algorithm}
 \label{app:params_ga}
-
-
 
 \begin{figure*}[htbp]
     \centering
     \includegraphics[width=\textwidth]{figs/GA/pop_size_GA.png}
-    \caption{
-    This figure shows the effect population size (40 versus 100) has on the accuracy performance. 
-    The x-axis displays the occurrences of each accuracy value (y-axis) 
-    }
+    \caption{The effect of population size on accuracy performance.}
     \label{fig:A_GA_popsize}
 \end{figure*}
 
-
 \begin{figure*}[htbp]
     \centering
-    \includegraphics[width=\textwidth]{figs/GA/bit_flips_GA.png}
-    \caption{
-    TODO: Bitflips caption
-    The x-axis displays the occurrences of each accuracy value (y-axis)
-    }
-    \label{fig:A_GA_bitflip}
+    \includegraphics[width=\textwidth]{figs/GA/elitism_GA.png}
+    \caption{The effect of elitism on accuracy performance.}
+    \label{fig:A_GA_elitism}
 \end{figure*}
-
-
-\begin{figure*}[htbp]
-    \centering
-    \includegraphics[width=\textwidth]{figs/GA/mutation_GA.png}
-    \caption{
-    TODO: caption 
-    The x-axis displays the occurrences of each accuracy value (y-axis)
-    }
-    \label{fig:A_GA_mutation}
-\end{figure*}
-
-
-\begin{figure}[htbp]
-    \hspace*{-1.5 cm} 
-    \centering
-    \includegraphics[scale = 0.5]{figs/GA/mutation_rate_GA.png}
-    \caption{
-    TODO: caption
-    The x-axis displays the occurrences of each accuracy value (y-axis). }
-    \label{fig:GA_mutation_rate}
-\end{figure}
-
-
-\begin{figure}[H]
-    \centering
-    \includegraphics[scale = 0.5]{figs/GA/selection_GA.png}
-    \caption{
-    TODO: caption
-    The x-axis displays the occurrences of each accuracy value (y-axis). }
-    \label{fig:GA_selection}
-\end{figure}
-
 
 \newpage
 
+\begin{figure*}[htbp]
+    \centering
+    \includegraphics[width=\textwidth]{figs/GA/selection_GA.png}
+    \caption{The effect of selection operator on accuracy performance.}
+    \label{fig:A_GA_selection}
+\end{figure*}
 
-\subsection{Parameter Plots - ES}
+\newpage
+
+\begin{figure*}[htbp]
+    \centering
+    \includegraphics[width=\textwidth]{figs/GA/recombination_GA.png}
+    \caption{The effect of using different recombination operators on accuracy performance.}
+    \label{fig:A_GA_recombination}
+\end{figure*}
+
+\newpage
+
+\begin{figure*}[htbp]
+    \centering
+    \includegraphics[width=.85\textwidth]{figs/GA/mutation_GA.png}
+    \caption{The effect of using different mutation operators on accuracy performance.}
+    \label{fig:A_GA_mutation}
+\end{figure*}
+
+\begin{figure*}[htbp]
+    \centering
+    \includegraphics[width=.85\textwidth]{figs/GA/bit_flips_GA.png}
+    \caption{The effect of number of bit flips on accuracy performance for the bitflip mutation operator.}
+    \label{fig:A_GA_bitflip}
+\end{figure*}
+
+\begin{figure*}[htbp]
+    \centering
+    \includegraphics[width=.85\textwidth]{figs/GA/mutation_rate_GA.png}
+    \caption{The effect of mutation rate on accuracy performance for the uniform mutation operator.}
+    \label{fig:GA_mutation_rate}
+\end{figure*}
+
+\newpage
+
+\subsection{Parameter Plots - Evolution Strategy}
 \label{app:params_es}
 
 \begin{figure*}[htbp]
     \centering
-    \includegraphics[width=\textwidth]{figs/ES/individual_sigmas_ES.png}
+    \includegraphics[width=\textwidth]{figs/ES/pop_size_ES.png}
+    \caption{The effect of population size on accuracy performance.}
+    \label{fig:A_ES_popsize}
+\end{figure*}
+
+\begin{figure*}[htbp]
+    \centering
+    \includegraphics[width=\textwidth]{figs/ES/elitism_ES.png}
+    \caption{The effect of elitism on accuracy performance.}
+    \label{fig:A_ES_elitism}
+\end{figure*}
+
+\newpage
+
+\begin{figure*}[htbp]
+    \centering
+    \includegraphics[width=.65\textwidth]{figs/ES/chunk_size_ES.png}
+    \caption{The effect of chunk size on accuracy performance.}
+    \label{fig:A_ES_chunksize}
+\end{figure*}
+
+\begin{figure*}[htbp]
+    \centering
+    \includegraphics[width=.9\textwidth]{figs/ES/sigma_ES.png}
+    \caption{The effect of using different sigmas on accuracy performance.}
+    \label{fig:A_ES_sigmas}
+\end{figure*}
+
+\begin{figure*}[htbp]
+    \centering
+    \includegraphics[width=.65\textwidth]{figs/ES/individual_sigmas_ES.png}
+    \captionsetup{width=0.7\textwidth}
     \caption{
-    This figure shows the difference of using individual sigmas, versus one global sigma for every individual. 
-    The x-axis displays the occurrences of each accuracy value (y-axis).
+    The effect of using individual sigmas for each gene, versus two sigmas for every individual (one for the matrix part, and one for the operations part).
     }
     \label{fig:A_ES_indivsigma}
 \end{figure*}
 
-
-
-\begin{figure*}[htbp]
-    \centering
-    \includegraphics[width=\textwidth]{figs/ES/pop_size_ES.png}
-    \caption{
-    This figure shows the effect population size (40 versus 100) has on the accuracy performance. 
-    The x-axis displays the occurrences of each accuracy value (y-axis) 
-    }
-    \label{fig:A_ES_popsize}
-\end{figure*}
-
+\newpage
 
 \begin{figure*}[htbp]
     \centering
-    \includegraphics[width=\textwidth]{figs/ES/sigma_ES.png}
-    \caption{
-    This figure shows the results of different sigma ($\sigma$) starting values (0.01, 0.1, 0.5). 
-    The x-axis displays the occurrences of each accuracy value (y-axis)
-    }
-    \label{fig:A_ES_sigmas}
+    \includegraphics[width=\textwidth]{figs/ES/recombination_ES.png}
+    \caption{The effect of using different recombination operators on accuracy performance.}
+    \label{fig:A_ES_recombination}
 \end{figure*}
 
+\newpage
 
 \begin{figure*}[htbp]
     \centering
     \includegraphics[width=\textwidth]{figs/ES/tau_ES.png}
-    \caption{
-    This figure displays the effect of steps-size differentiation value tau ($\tau$) has. 
-    Four different step-sizes are tested; 0.1, 0.2, 0.5 and 0.99. 
-    The x-axis displays the occurrences of each accuracy value (y-axis)
-    }
+    \caption{The effect of using different tau rates on accuracy performance.}
     \label{fig:A_ES_tau}
 \end{figure*}
 
@@ -1204,7 +1284,7 @@ The same analysis as ES is also applied to the GA algorithm, from which we can c
         This workflow shows the general interactions of the different functions. 
         Hopefully helping to create a better sense of connectivity between the different seen operations. 
         The different coloring represent the connection to the file they belong in; 
-        main.py (blue), evolution\_strategies.py (green), genetic\_algorithm.py (red) and purple being function needed to call the script from other sources.
+        \texttt{main.py} (blue), \texttt{evolution\_strategies.py} (green), \texttt{genetic\_algorithm.py} (red) and purple being function needed to call the script from other sources.
     }
     \label{fig:A_workflow}
 \end{figure}
